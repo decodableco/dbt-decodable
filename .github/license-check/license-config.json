@@ -1,0 +1,49 @@
+[
+    {
+        "include": [
+            "**/*.yml",
+            "**/*.yaml",
+            "**/*.py"
+        ],
+        "exclude": [
+            ".venv/**",
+            "typings/**",
+            "dist/**",
+            ".pytest_cache/**",
+            "example_project/**"
+        ],
+        "license": "./.github/license-check/license-header.py"
+    },
+    {
+        "include": [
+            "**/*.sql"
+        ],
+        "exclude": [
+            ".venv/**",
+            "typings/**",
+            "dist/**",
+            ".pytest_cache/**",
+            "example_project/**"
+        ],
+        "license": "./.github/license-check/license-header.sql"
+    },
+    {
+        "include": [
+            ".venv/**",
+            "typings/**",
+            "dist/**",
+            ".pytest_cache/**",
+            "example_project/**",
+            "example_project/**/*",
+            "**/*.toml",
+            "**/*.md",
+            "**/*.lock",
+            "**/*.in",
+            "**/*.txt",
+            "**/*.ini",
+            "**/*.env",
+            ".gitignore",
+            "flake8"
+        ]
+    }
+]

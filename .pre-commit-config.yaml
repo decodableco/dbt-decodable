@@ -1,0 +1,58 @@
+#
+#  Copyright %year% decodable Inc.
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#
+
+# TODO: remove global exclusion of tests when testing overhaul is complete
+# exclude: "^tests/.*"
+
+default_language_version:
+  python: python3.8
+
+repos:
+- repo: https://github.com/pre-commit/pre-commit-hooks
+  rev: v3.2.0
+  hooks:
+  - id: check-yaml
+    args: [--unsafe]
+  - id: check-json
+  - id: end-of-file-fixer
+  - id: trailing-whitespace
+  - id: check-case-conflict
+- repo: https://github.com/psf/black
+  rev: 22.3.0
+  hooks:
+  - id: black
+    args:
+    - "--line-length=99"
+    - "--target-version=py38"
+  - id: black
+    alias: black-check
+    stages: [manual]
+    args:
+    - "--line-length=99"
+    - "--target-version=py38"
+    - "--check"
+    - "--diff"
+- repo: https://github.com/pycqa/flake8
+  rev: 4.0.1
+  hooks:
+  - id: flake8
+  - id: flake8
+    alias: flake8-check
+    stages: [manual]
+- repo: https://github.com/RobertCraigie/pyright-python
+  rev: v1.1.280
+  hooks:
+  - id: pyright
