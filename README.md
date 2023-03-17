@@ -184,7 +184,23 @@ The `models`, `seeds` and `tests` arguments specify whether those resource types
 Contributions to this repository are more than welcome.
 Please create any pull requests against the [main] branch.
 
-Each release is maintained in a `release/` branch, such as `release/v1.3.2`, and there's a tag for it.
+Each release is maintained in a `releases/*` branch, such as `releases/v1.3.2`, and there's a tag for it.
+
+### How to create a release
+
+This is based on an example release called `v1.3.3`.
+
+```bash
+# We assume to be on 'main'.
+# Fork into release branch
+git checkout -b releases/v1.3.3
+# Edit pyproject.toml and set: version = "1.3.3"
+vi pyproject.toml
+# create release commit
+git commit -am "[#2] Set version to v1.3.3"
+# Create a release with a tag from the GitHub UI pointing to the commit we just created.
+# CI will do the rest.
+```
 
 ## License
 
