@@ -186,6 +186,11 @@ Please create any pull requests against the [main] branch.
 
 Each release is maintained in a `releases/*` branch, such as `releases/v1.3.2`, and there's a tag for it.
 
+### Build local version
+```bash
+pip install .
+```
+
 ### How to create a release
 
 This is based on an example release called `v1.3.3`.
