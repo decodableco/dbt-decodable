@@ -14,10 +14,11 @@
 #  limitations under the License.
 #
 from __future__ import annotations
+
+import re
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import List, Optional, Type
-import re
 
 
 @dataclass(frozen=True)
@@ -48,7 +49,7 @@ class FieldType:
             Boolean,
             Interval,
             Multiset,
-            PrimaryKey
+            PrimaryKey,
         ]
 
         found: Optional[FieldType] = None
@@ -739,7 +740,7 @@ class PrimaryKey(FieldType):
 
     def __repr__(self) -> str:
         return f"{self.inner_type} PRIMARY KEY"
-    
+
     @classmethod
     def from_str(cls, type: str) -> Optional[FieldType]:
         found = re.fullmatch(r"(?P<type>.*) PRIMARY KEY", type)
