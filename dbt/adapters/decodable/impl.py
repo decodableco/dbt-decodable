@@ -378,7 +378,11 @@ class DecodableAdapter(BaseAdapter):
 
     @available
     def has_changed(
-        self, sql: str, relation: BaseRelation, watermark: Optional[str] = None
+        self,
+        sql: str,
+        relation: BaseRelation,
+        watermark: Optional[str] = None,
+        primary_key: Optional[str] = None,
     ) -> bool:
         client = self._client()
 
@@ -388,6 +392,11 @@ class DecodableAdapter(BaseAdapter):
         schema: List[SchemaField]
         try:
             schema = self._schema_from_json(fields)
+            # The API returns the current primary key field. For the to-be value in this comparison, we set it to
+            # the field specified via config.
+            self._remove_primary_key(schema)
+            if primary_key:
+                self._set_primary_key(primary_key, schema)
         except Exception as err:
             raise_compiler_error(f"Error checking changes to the '{relation}' stream: {err}")
 
@@ -659,6 +668,30 @@ class DecodableAdapter(BaseAdapter):
             schema.add(SchemaField(name=name, type=t))
 
         return schema
+
+    @staticmethod
+    def _set_primary_key(primary_key_field: str, schema: List[SchemaField]) -> None:
+        """
+        Sets the primary key to the specified field in the provided schema. Does nothing if the schema does not contain
+        the specified field.
+        """
+        for field in schema:
+            if isinstance(field.type, PrimaryKey):
+                raise ValueError(
+                    f"Trying to set primary key to {primary_key_field}, but schema already has a primary "
+                    f"key assigned to {field.name}"
+                )
+            if field.name == primary_key_field:
+                field.type = PrimaryKey(field.type)
+
+    @staticmethod
+    def _remove_primary_key(schema: List[SchemaField]) -> None:
+        """
+        Removes the primary key from the provided schema (if present).
+        """
+        for field in schema:
+            if isinstance(field.type, PrimaryKey):
+                field.type = field.type.inner_type
 
     @staticmethod
     def _pretty_schema(
