@@ -4,3 +4,5 @@ version: 2
 models:
   - name: http_events
     description: "Parsed Envoy proxy logs from production"
+  - name: http_events_bytes_sent
+    description: "Sum of total bytes sent per request method in the Envoy proxy logs"
