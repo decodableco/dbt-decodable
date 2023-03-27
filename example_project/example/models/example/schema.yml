@@ -2,5 +2,5 @@
 version: 2
 
 models:
-  - name: test
+  - name: http_events
     description: "Parsed Envoy proxy logs from production"
