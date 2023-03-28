@@ -91,7 +91,9 @@ By default, the adapter will not tear down and recreate the model on Decodable i
 
 ### Custom model configuration
 
-A `watermark` option can be configured to specify the [watermark](https://docs.decodable.co/docs/streams#managing-streams) to be set for the model's respective Decodable stream.
+A `watermark` option can be configured to specify the [watermark](https://docs.decodable.co/docs/streams#managing-streams) to be set for the model's respective Decodable stream. See the [http events example](example_project/example/models/example/http_events.sql).
+
+A `primary_key` option can be configured to specify the primary key if the target stream is a [change stream](https://docs.decodable.co/docs/streams#stream-types). See the [group by example](example_project/example/models/example/http_events_bytes_sent.sql).
 
 More on specifying configuration options per model can be found [here](https://docs.getdbt.com/reference/model-configs).
 
@@ -185,6 +187,11 @@ Contributions to this repository are more than welcome.
 Please create any pull requests against the [main] branch.
 
 Each release is maintained in a `releases/*` branch, such as `releases/v1.3.2`, and there's a tag for it.
+
+### Build local version
+```bash
+pip install .
+```
 
 ### How to create a release
 

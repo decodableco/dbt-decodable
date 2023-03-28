@@ -14,7 +14,8 @@
  *  limitations under the License.
  */
 
-{% macro decodable__create_table_as(temporary, relation, sql, primary_key=none) -%}
+{% macro decodable__create_table_as(temporary, relation, sql) -%}
   {% set watermark = config.get('watermark') %}
+  {% set primary_key = config.get('primary_key') %}
   {% do adapter.create_table(sql, temporary, relation, graph.nodes, watermark, primary_key) %}
 {%- endmacro %}
