@@ -188,6 +188,10 @@ Delete all Decodable entities resulting from the materialization of the project'
 If the `list` arg is provided, the command only considers the listed resources. Otherwise, it deletes all entities associated with the project. <br>
 The `models`, `seeds` and `tests` arguments specify whether those resource types should be included in the cleanup. Note that cleanup does nothing for tests that have not been materialized.
 
+## Known limitations
+
+The dbt decodable adapter does not allow managing decodable connectors via dbt. You can only create streams and pipelines with dbt.
+
 ## Contributions
 
 Contributions to this repository are more than welcome.
