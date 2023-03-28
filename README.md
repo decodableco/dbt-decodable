@@ -47,6 +47,10 @@ dbt-decodable: # this name must match the 'profile' from dbt_project.yml
 dbt run
 ```
 
+Note that this dbt adapter ignores the `active-profile` setting in `~/.decodable/config`. You must put the decodable profile you want to use
+in the `~/.dbt/profiles.yml` file into the `profile_name` setting.
+The adapter does not support a custom decodable `base-url` (e.g. for local development or proxies).
+
 ## Configuring your profile
 
 Profiles in dbt describe a set of configurations specific to a connection with the underlying data warehouse. Each dbt project should have a corresponding profile (though profiles can be reused for different project). Within a profile, multiple targets can be described to further control dbt's behavior. For example, it's very common to have a `dev` target for development and a `prod` target for production related configurations.
