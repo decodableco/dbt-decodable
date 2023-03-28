@@ -91,7 +91,10 @@ To materialize your models simply run the [`dbt run`](https://docs.getdbt.com/re
 
 3. Activate the pipeline.
 
-By default, the adapter will not tear down and recreate the model on Decodable if no changes to the model have been detected. Invoking dbt with the `--full-refresh` flag set, or setting that configuration option for a specific model will cause the corresponding resources on Decodable to be destroyed and built from scratch. See the [docs](https://docs.getdbt.com/reference/resource-configs/full_refresh) for more information on using this option.
+By default, the adapter will not tear down and recreate the model on Decodable if no changes to the model have been detected. However, if changes
+to a decodable stream have been detected, it will be deleted and recreated. We recommend configuring a `local_namespace` for dbt-managed
+resources to prevent accidential deletion of streams.
+Invoking dbt with the `--full-refresh` flag set, or setting that configuration option for a specific model will cause the corresponding resources on Decodable to be destroyed and built from scratch. See the [docs](https://docs.getdbt.com/reference/resource-configs/full_refresh) for more information on using this option.
 
 ### Custom model configuration
 
