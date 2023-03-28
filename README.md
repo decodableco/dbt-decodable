@@ -47,6 +47,10 @@ dbt-decodable: # this name must match the 'profile' from dbt_project.yml
 dbt run
 ```
 
+Note that this dbt adapter ignores the `active-profile` setting in `~/.decodable/config`. You must put the decodable profile you want to use
+in the `~/.dbt/profiles.yml` file into the `profile_name` setting.
+The adapter does not support a custom decodable `base-url` (e.g. for local development or proxies).
+
 ## Configuring your profile
 
 Profiles in dbt describe a set of configurations specific to a connection with the underlying data warehouse. Each dbt project should have a corresponding profile (though profiles can be reused for different project). Within a profile, multiple targets can be described to further control dbt's behavior. For example, it's very common to have a `dev` target for development and a `prod` target for production related configurations.
@@ -87,7 +91,10 @@ To materialize your models simply run the [`dbt run`](https://docs.getdbt.com/re
 
 3. Activate the pipeline.
 
-By default, the adapter will not tear down and recreate the model on Decodable if no changes to the model have been detected. Invoking dbt with the `--full-refresh` flag set, or setting that configuration option for a specific model will cause the corresponding resources on Decodable to be destroyed and built from scratch. See the [docs](https://docs.getdbt.com/reference/resource-configs/full_refresh) for more information on using this option.
+By default, the adapter will not tear down and recreate the model on Decodable if no changes to the model have been detected. However, if changes
+to a decodable stream have been detected, it will be deleted and recreated. We recommend configuring a `local_namespace` for dbt-managed
+resources to prevent accidential deletion of streams.
+Invoking dbt with the `--full-refresh` flag set, or setting that configuration option for a specific model will cause the corresponding resources on Decodable to be destroyed and built from scratch. See the [docs](https://docs.getdbt.com/reference/resource-configs/full_refresh) for more information on using this option.
 
 ### Custom model configuration
 
@@ -180,6 +187,10 @@ ___
 Delete all Decodable entities resulting from the materialization of the project's resources, i.e. connections, streams and pipelines. <br>
 If the `list` arg is provided, the command only considers the listed resources. Otherwise, it deletes all entities associated with the project. <br>
 The `models`, `seeds` and `tests` arguments specify whether those resource types should be included in the cleanup. Note that cleanup does nothing for tests that have not been materialized.
+
+## Known limitations
+
+The dbt decodable adapter does not allow managing decodable connectors via dbt. You can only create streams and pipelines with dbt.
 
 ## Contributions
 
