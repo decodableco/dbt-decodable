@@ -583,12 +583,18 @@ class TimestampLocal(TimestampType):
 
     @classmethod
     def from_str(cls, type: str) -> Optional[FieldType]:
-        found = re.fullmatch(r"TIMESTAMP_LTZ\((?P<precision>\d+)\)", type)
+        found_shorthand = re.fullmatch(r"TIMESTAMP_LTZ\((?P<precision>\d+)\)", type)
+        found_full_version = re.fullmatch(
+            r"TIMESTAMP\((?P<precision>\d+)\) WITH LOCAL TIME ZONE", type
+        )
 
-        if not found:
-            return None
+        if found_shorthand:
+            return cls(int(found_shorthand["precision"]))
 
-        return cls(int(found["precision"]))
+        if found_full_version:
+            return cls(int(found_full_version["precision"]))
+
+        return None
 
 
 @dataclass(frozen=True)

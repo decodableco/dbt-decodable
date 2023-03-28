@@ -31,6 +31,9 @@ class TestTypes:
         t = types.Timestamp.from_str("TIMESTAMP(15) WITH TIME ZONE")
         assert t == types.Timestamp(precision=15, timezone=True)
 
+        t = types.TimestampLocal.from_str("TIMESTAMP(3) WITH LOCAL TIME ZONE")
+        assert t == types.TimestampLocal(precision=3)
+
     def test_from_str_dispatch(self):
         str_types = ["DECIMAL", "STRING", "ARRAY<CHAR(1)>", "VARBINAR", "TIMESTAMP(3)"]
 
