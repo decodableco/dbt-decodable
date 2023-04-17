@@ -41,6 +41,7 @@ dbt-decodable: # this name must match the 'profile' from dbt_project.yml
       type: decodable
       database: db
       schema: demo
+      local_namespace: dbt_demo
   target: dev
 
 # This will launch the example project
