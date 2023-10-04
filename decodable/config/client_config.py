@@ -17,10 +17,15 @@ from dataclasses import dataclass
 
 
 @dataclass
-class DecodableClientConfig:
+class DecodableControlPlaneClientConfig:
     account_name: str
     access_token: str
     api_url: str
 
     def decodable_api_url(self) -> str:
         return f"https://{self.account_name}.{self.api_url}"
+
+
+@dataclass
+class DecodableDataPlaneClientConfig:
+    api_url: str

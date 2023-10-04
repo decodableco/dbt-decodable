@@ -14,14 +14,16 @@
 #  limitations under the License.
 #
 from __future__ import annotations
-from typing import Any, Dict, Optional, List
-from typing_extensions import override
-import requests
+
 from dataclasses import dataclass
+from typing import Any, Dict, Optional, List
+
+import requests
+from typing_extensions import override
 
 from decodable.client.api import Connector, ConnectionType, StartPosition
 from decodable.client.types import FieldType
-from decodable.config.client_config import DecodableClientConfig
+from decodable.config.client_config import DecodableControlPlaneClientConfig, DecodableDataPlaneClientConfig
 
 
 @dataclass
@@ -44,6 +46,51 @@ class PreviewResponse:
             output_stream_type=response["output_stream_type"],
             results=response["results"],
             next_token=response["next_token"],
+        )
+
+
+@dataclass
+class AccountInfoResponse:
+    subscription: SubscriptionResponse
+    deployment_type: str
+    data_plane_hostname: str
+    uses_new_secrets: bool
+
+    @classmethod
+    def from_dict(cls, response: Dict[str, Any]) -> AccountInfoResponse:
+        return cls(
+            subscription=SubscriptionResponse.from_dict(response["subscription"]),
+            deployment_type=response["deployment_type"],
+            data_plane_hostname=response["data_plane_hostname"],
+            uses_new_secrets=response["uses_new_secrets"],
+        )
+
+
+@dataclass
+class SubscriptionResponse:
+    plan_id: str
+    capabilities: List[str]
+
+    @classmethod
+    def from_dict(cls, response: Dict[str, Any]) -> SubscriptionResponse:
+        return cls(
+            plan_id=response["plan_id"],
+            capabilities=response["capabilities"],
+        )
+
+
+@dataclass
+class PreviewTokensResponse:
+    data_plane_request: str
+    post_token: str
+    get_token: str
+
+    @classmethod
+    def from_dict(cls, response: Dict[str, Any]) -> PreviewTokensResponse:
+        return cls(
+            data_plane_request=response["data_plane_request"],
+            post_token=response["post_token"],
+            get_token=response["get_token"],
         )
 
 
@@ -97,10 +144,66 @@ class SchemaField:
         return res
 
 
-class DecodableApiClient:
-    config: DecodableClientConfig
+class DecodableDataPlaneApiClient:
+    config: DecodableDataPlaneClientConfig
 
-    def __init__(self, config: DecodableClientConfig):
+    def __init__(self, config: DecodableDataPlaneClientConfig):
+        self.config = config
+
+    def start_preview(self, token: str, data_plane_request: str) -> PreviewResponse:
+        response = self._post_api_request(data=data_plane_request,
+                                          bearer_token=token,
+                                          endpoint_url=f"{self.config.api_url}/sql/preview")
+        return PreviewResponse.from_dict(response.json())
+
+    def get_preview(self, auth_token: str, next_token: str) -> PreviewResponse:
+        response = self._get_api_request(bearer_token=auth_token,
+                                         endpoint_url=f"{self.config.api_url}/sql/preview",
+                                         additional_headers={"decodable-token": next_token})
+        return PreviewResponse.from_dict(response.json())
+
+    def _get_api_request(self, bearer_token: str, endpoint_url: str, additional_headers: Dict[str, str] = None) \
+            -> requests.Response:
+        headers = {
+            "accept": "application/json",
+            "Authorization": f"Bearer {bearer_token}",
+        }
+        if additional_headers is not None:
+            headers.update(additional_headers)
+
+        response = requests.get(
+            url=endpoint_url,
+            headers=headers,
+        )
+
+        if response.ok:
+            return response
+        else:
+            raise_api_exception(response.status_code, response.json())
+
+    def _post_api_request(self, bearer_token: str, endpoint_url: str, payload: Any = None,
+                          data: Any = None) -> requests.Response:
+        response = requests.post(
+            url=endpoint_url,
+            json=payload,
+            data=data,
+            headers={
+                "accept": "application/json",
+                "content-type": "application/json",
+                "Authorization": f"Bearer {bearer_token}",
+            },
+        )
+
+        if response.ok:
+            return response
+        else:
+            raise_api_exception(response.status_code, response.json())
+
+
+class DecodableControlPlaneApiClient:
+    config: DecodableControlPlaneClientConfig
+
+    def __init__(self, config: DecodableControlPlaneClientConfig):
         self.config = config
 
     def test_connection(self) -> requests.Response:
@@ -153,7 +256,7 @@ class DecodableApiClient:
         ).json()
 
     def create_stream(
-        self, name: str, schema_fields: List[SchemaField], watermark: Optional[str] = None
+            self, name: str, schema_fields: List[SchemaField], watermark: Optional[str] = None
     ) -> ApiResponse:
         payload = {
             "schema": [{"name": field.name, "type": repr(field.type)} for field in schema_fields],
@@ -252,11 +355,25 @@ class DecodableApiClient:
             endpoint_url=f"{self.config.decodable_api_url()}/pipelines/{pipeline_id}"
         )
 
+    def get_preview_tokens(self, sql: str, preview_start: StartPosition = StartPosition.LATEST,
+                           input_streams: List[str] = None) -> PreviewTokensResponse:
+        if input_streams is None:
+            input_streams = []
+        payload = {
+            "sql": sql,
+            "start_positions": {
+                stream: {"type": "TAG", "value": preview_start.value} for stream in input_streams
+            }
+        }
+        response = self._post_api_request(payload=payload,
+                                          endpoint_url=f"{self.config.decodable_api_url()}/preview/tokens")
+        return PreviewTokensResponse.from_dict(response.json())
+
     def create_preview(
-        self,
-        sql: str,
-        preview_start: StartPosition = StartPosition.LATEST,
-        input_streams: List[str] = [],
+            self,
+            sql: str,
+            preview_start: StartPosition = StartPosition.LATEST,
+            input_streams: List[str] = [],
     ) -> PreviewResponse:
         payload = {
             "sql": sql,
@@ -302,12 +419,12 @@ class DecodableApiClient:
         return conn_id
 
     def create_connection(
-        self,
-        name: str,
-        schema: List[SchemaField],
-        stream: Optional[str] = None,
-        connector: Connector = Connector.REST,
-        connection_type: ConnectionType = ConnectionType.SOURCE,
+            self,
+            name: str,
+            schema: List[SchemaField],
+            stream: Optional[str] = None,
+            connector: Connector = Connector.REST,
+            connection_type: ConnectionType = ConnectionType.SOURCE,
     ) -> Dict[str, Any]:
         if not stream:
             stream = name
@@ -350,6 +467,11 @@ class DecodableApiClient:
         ).json()
 
         return response["count"]
+
+    def get_account_info(self, account_name: str) -> AccountInfoResponse:
+        response = self._get_api_request(endpoint_url=f"{self.config.decodable_api_url()}/accounts/{account_name}")
+
+        return AccountInfoResponse.from_dict(response.json())
 
     def _parse_response(self, result: Any) -> ApiResponse:
         return ApiResponse(items=result["items"], next_page_token=result["next_page_token"])

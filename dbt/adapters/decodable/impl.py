@@ -39,7 +39,7 @@ from dbt.adapters.decodable.connections import (
 from dbt.adapters.decodable.handler import DecodableHandler
 from dbt.adapters.decodable.relation import DecodableRelation
 from dbt.adapters.protocol import AdapterConfig
-from decodable.client.client import DecodableApiClient, SchemaField
+from decodable.client.client import DecodableControlPlaneApiClient, SchemaField
 from decodable.client.types import (
     FieldType,
     PrimaryKey,
@@ -645,11 +645,11 @@ class DecodableAdapter(BaseAdapter):
             return False
         return credentials.materialize_tests
 
-    def _client(self) -> DecodableApiClient:
+    def _client(self) -> DecodableControlPlaneApiClient:
         handle: DecodableHandler = (
             self.get_thread_connection().handle
         )  # pyright: ignore [reportGeneralTypeIssues]
-        return handle.client
+        return handle.control_plane_client
 
     @classmethod
     def _get_model_schema_hints(cls, model: ParsedNode) -> Set[SchemaField]:

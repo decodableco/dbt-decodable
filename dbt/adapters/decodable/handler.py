@@ -19,8 +19,8 @@ from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
 
 from dbt.events import AdapterLogger
 
-from decodable.client.client import DecodableApiClient
 from decodable.client.api import StartPosition
+from decodable.client.client import DecodableControlPlaneApiClient, DecodableDataPlaneApiClient
 
 
 def exponential_backoff(timeout: float) -> Iterator[float]:
@@ -42,11 +42,13 @@ def exponential_backoff(timeout: float) -> Iterator[float]:
 class DecodableCursor:
     logger = AdapterLogger("Decodable")
 
-    def __init__(self, client: DecodableApiClient, preview_start: StartPosition, timeout: float):
+    def __init__(self, control_plane_client: DecodableControlPlaneApiClient,
+                 data_plane_client: DecodableDataPlaneApiClient, preview_start: StartPosition, timeout: float):
         self.logger.debug(
             f"Creating new cursor(preview_start: {preview_start}, timeout: {timeout})"
         )
-        self.client = client
+        self.control_plane_client = control_plane_client
+        self.data_plane_client = data_plane_client
         self.preview_start = preview_start
         self.timeout = timeout
         self.last_sql: Optional[str] = None
@@ -54,17 +56,19 @@ class DecodableCursor:
 
     def execute(self, sql: str, bindings: Optional[Sequence[Any]] = None) -> None:
         self.logger.debug(f"Execute(sql): {sql}")
-        inputs: List[Dict[str, Any]] = self.client.get_preview_dependencies(sql)["inputs"]
+        inputs: List[Dict[str, Any]] = self.control_plane_client.get_preview_dependencies(sql)["inputs"]
         input_streams: List[str] = [i["resourceName"] for i in inputs]
-        response = self.client.create_preview(sql, self.preview_start, input_streams)
+        tokens_response = self.control_plane_client.get_preview_tokens(sql, self.preview_start, input_streams)
+        response = self.data_plane_client.start_preview(tokens_response.post_token,
+                                                        tokens_response.data_plane_request)
         self.logger.debug(f"Create preview response: {response}")
 
         append_stream = response.output_stream_type == "APPEND"
         self.last_result = []
 
         for _ in exponential_backoff(self.timeout):
-            token = response.next_token
-            response = self.client.run_preview(id=response.id, token=token)
+            next_token = response.next_token
+            response = self.data_plane_client.get_preview(tokens_response.get_token, next_token)
             self.logger.debug(f"Run preview response: {response}")
 
             if append_stream:
@@ -112,10 +116,12 @@ class DecodableCursor:
 
 
 class DecodableHandler:
-    def __init__(self, client: DecodableApiClient, preview_start: StartPosition, timeout: float):
-        self.client = client
+    def __init__(self, control_plane_client: DecodableControlPlaneApiClient,
+                 data_plane_client: DecodableDataPlaneApiClient, preview_start: StartPosition, timeout: float):
+        self.control_plane_client = control_plane_client
+        self.data_plane_client = data_plane_client
         self.preview_start = preview_start
         self.timeout = timeout
 
     def cursor(self) -> DecodableCursor:
-        return DecodableCursor(self.client, self.preview_start, self.timeout)
+        return DecodableCursor(self.control_plane_client, self.data_plane_client, self.preview_start, self.timeout)
