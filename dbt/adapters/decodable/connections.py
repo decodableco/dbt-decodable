@@ -129,12 +129,17 @@ class DecodableAdapterConnectionManager(SQLConnectionManager):
                 f"Status code: {decodable_connection_test.status_code}. Decodable connection failed. Try running 'decodable login' first{error_message}"
             )
 
-        data_plane_hostname = control_plane_client.get_account_info(credentials.account_name).data_plane_hostname
+        data_plane_hostname = control_plane_client.get_account_info(
+            credentials.account_name
+        ).data_plane_hostname
         data_plane_base_url = f"https://{data_plane_hostname}/v1alpha2"
         data_plane_client = DecodableClientFactory.create_data_plane_client(data_plane_base_url)
 
         connection.handle = DecodableHandler(
-            control_plane_client, data_plane_client, credentials.preview_start, credentials.request_timeout_ms / 1000
+            control_plane_client,
+            data_plane_client,
+            credentials.preview_start,
+            credentials.request_timeout_ms / 1000,
         )
         return connection
 

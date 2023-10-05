@@ -16,7 +16,10 @@
 from typing import Optional
 
 from decodable.client.client import DecodableControlPlaneApiClient, DecodableDataPlaneApiClient
-from decodable.config.client_config import DecodableControlPlaneClientConfig, DecodableDataPlaneClientConfig
+from decodable.config.client_config import (
+    DecodableControlPlaneClientConfig,
+    DecodableDataPlaneClientConfig,
+)
 from decodable.config.profile_reader import DecodableProfileReader
 
 

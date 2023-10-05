@@ -42,8 +42,13 @@ def exponential_backoff(timeout: float) -> Iterator[float]:
 class DecodableCursor:
     logger = AdapterLogger("Decodable")
 
-    def __init__(self, control_plane_client: DecodableControlPlaneApiClient,
-                 data_plane_client: DecodableDataPlaneApiClient, preview_start: StartPosition, timeout: float):
+    def __init__(
+        self,
+        control_plane_client: DecodableControlPlaneApiClient,
+        data_plane_client: DecodableDataPlaneApiClient,
+        preview_start: StartPosition,
+        timeout: float,
+    ):
         self.logger.debug(
             f"Creating new cursor(preview_start: {preview_start}, timeout: {timeout})"
         )
@@ -56,11 +61,16 @@ class DecodableCursor:
 
     def execute(self, sql: str, bindings: Optional[Sequence[Any]] = None) -> None:
         self.logger.debug(f"Execute(sql): {sql}")
-        inputs: List[Dict[str, Any]] = self.control_plane_client.get_preview_dependencies(sql)["inputs"]
+        inputs: List[Dict[str, Any]] = self.control_plane_client.get_preview_dependencies(sql)[
+            "inputs"
+        ]
         input_streams: List[str] = [i["resourceName"] for i in inputs]
-        tokens_response = self.control_plane_client.get_preview_tokens(sql, self.preview_start, input_streams)
-        response = self.data_plane_client.start_preview(tokens_response.post_token,
-                                                        tokens_response.data_plane_request)
+        tokens_response = self.control_plane_client.get_preview_tokens(
+            sql, self.preview_start, input_streams
+        )
+        response = self.data_plane_client.start_preview(
+            tokens_response.post_token, tokens_response.data_plane_request
+        )
         self.logger.debug(f"Create preview response: {response}")
 
         append_stream = response.output_stream_type == "APPEND"
@@ -116,12 +126,19 @@ class DecodableCursor:
 
 
 class DecodableHandler:
-    def __init__(self, control_plane_client: DecodableControlPlaneApiClient,
-                 data_plane_client: DecodableDataPlaneApiClient, preview_start: StartPosition, timeout: float):
+    def __init__(
+        self,
+        control_plane_client: DecodableControlPlaneApiClient,
+        data_plane_client: DecodableDataPlaneApiClient,
+        preview_start: StartPosition,
+        timeout: float,
+    ):
         self.control_plane_client = control_plane_client
         self.data_plane_client = data_plane_client
         self.preview_start = preview_start
         self.timeout = timeout
 
     def cursor(self) -> DecodableCursor:
-        return DecodableCursor(self.control_plane_client, self.data_plane_client, self.preview_start, self.timeout)
+        return DecodableCursor(
+            self.control_plane_client, self.data_plane_client, self.preview_start, self.timeout
+        )
