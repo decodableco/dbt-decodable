@@ -170,7 +170,10 @@ class DecodableDataPlaneApiClient:
         return PreviewResponse.from_dict(response.json())
 
     def _get_api_request(
-        self, bearer_token: str, endpoint_url: str, additional_headers: Optional[Dict[str, str]] = None
+        self,
+        bearer_token: str,
+        endpoint_url: str,
+        additional_headers: Optional[Dict[str, str]] = None,
     ) -> requests.Response:
         headers = {
             "accept": "application/json",
