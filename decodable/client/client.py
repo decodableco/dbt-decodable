@@ -386,31 +386,6 @@ class DecodableControlPlaneApiClient:
         )
         return PreviewTokensResponse.from_dict(response.json())
 
-    def create_preview(
-        self,
-        sql: str,
-        preview_start: StartPosition = StartPosition.LATEST,
-        input_streams: List[str] = [],
-    ) -> PreviewResponse:
-        payload = {
-            "sql": sql,
-            "support_change_stream": True,
-            "start_positions": {
-                stream: {"type": "TAG", "value": preview_start.value} for stream in input_streams
-            },
-        }
-
-        response = self._post_api_request(
-            payload=payload, endpoint_url=f"{self.config.decodable_api_url()}/preview"
-        )
-        return PreviewResponse.from_dict(response.json())
-
-    def run_preview(self, id: str, token: str) -> PreviewResponse:
-        response = self._get_api_request(
-            endpoint_url=f"{self.config.decodable_api_url()}/preview/{id}?token={token}"
-        )
-        return PreviewResponse.from_dict(response.json())
-
     def get_preview_dependencies(self, sql: str) -> Dict[str, Any]:
         payload = {"sql": sql}
 
