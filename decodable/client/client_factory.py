@@ -15,18 +15,21 @@
 #
 from typing import Optional
 
-from decodable.client.client import DecodableApiClient
-from decodable.config.client_config import DecodableClientConfig
+from decodable.client.client import DecodableControlPlaneApiClient, DecodableDataPlaneApiClient
+from decodable.config.client_config import (
+    DecodableControlPlaneClientConfig,
+    DecodableDataPlaneClientConfig,
+)
 from decodable.config.profile_reader import DecodableProfileReader
 
 
 class DecodableClientFactory:
     @staticmethod
-    def create_client(
+    def create_control_plane_client(
         api_url: str,
         profile_name: Optional[str] = "default",
         decodable_account_name: Optional[str] = None,
-    ) -> DecodableApiClient:
+    ) -> DecodableControlPlaneApiClient:
         if decodable_account_name is None:
             raise Exception("Undefined Decodable account name. Update DBT profile")
         profile_access_tokens = DecodableProfileReader.load_profiles()
@@ -35,8 +38,12 @@ class DecodableClientFactory:
                 f"Undefined '{profile_name} in decodable profile file ~/.decodable/auth"
             )
         access_token = profile_access_tokens.profile_tokens[profile_name]
-        return DecodableApiClient(
-            config=DecodableClientConfig(
+        return DecodableControlPlaneApiClient(
+            config=DecodableControlPlaneClientConfig(
                 access_token=access_token, account_name=decodable_account_name, api_url=api_url
             )
         )
+
+    @staticmethod
+    def create_data_plane_client(api_url: str) -> DecodableDataPlaneApiClient:
+        return DecodableDataPlaneApiClient(config=DecodableDataPlaneClientConfig(api_url=api_url))

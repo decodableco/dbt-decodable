@@ -13,9 +13,9 @@
 #  See the License for the specific language governing permissions and
 #  limitations under the License.
 #
-from typing import Any, Optional, Tuple
 from contextlib import contextmanager
 from dataclasses import dataclass
+from typing import Any, Optional, Tuple
 
 from agate.table import Table
 from dbt.adapters.sql.connections import SQLConnectionManager
@@ -28,8 +28,8 @@ from dbt.events import AdapterLogger
 from dbt.exceptions import RuntimeException
 
 from dbt.adapters.decodable.handler import DecodableCursor, DecodableHandler
-from decodable.client.client_factory import DecodableClientFactory
 from decodable.client.api import StartPosition
+from decodable.client.client_factory import DecodableClientFactory
 
 
 @dataclass
@@ -111,13 +111,13 @@ class DecodableAdapterConnectionManager(SQLConnectionManager):
             raise RuntimeException("Cannot open a Decodable connection without credentials")
 
         credentials: DecodableAdapterCredentials = connection.credentials
-        client = DecodableClientFactory.create_client(
+        control_plane_client = DecodableClientFactory.create_control_plane_client(
             api_url=credentials.api_url,
             profile_name=credentials.profile_name,
             decodable_account_name=credentials.account_name,
         )
 
-        decodable_connection_test = client.test_connection()
+        decodable_connection_test = control_plane_client.test_connection()
         if not decodable_connection_test.ok:
             error_message = ""
             if (
@@ -129,8 +129,17 @@ class DecodableAdapterConnectionManager(SQLConnectionManager):
                 f"Status code: {decodable_connection_test.status_code}. Decodable connection failed. Try running 'decodable login' first{error_message}"
             )
 
+        data_plane_hostname = control_plane_client.get_account_info(
+            credentials.account_name
+        ).data_plane_hostname
+        data_plane_base_url = f"https://{data_plane_hostname}/v1alpha2"
+        data_plane_client = DecodableClientFactory.create_data_plane_client(data_plane_base_url)
+
         connection.handle = DecodableHandler(
-            client, credentials.preview_start, credentials.request_timeout_ms / 1000
+            control_plane_client,
+            data_plane_client,
+            credentials.preview_start,
+            credentials.request_timeout_ms / 1000,
         )
         return connection
 
