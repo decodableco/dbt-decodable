@@ -243,15 +243,17 @@ class DecodableAdapter(BaseAdapter):
         if not relation.identifier:
             raise_compiler_error("Cannot truncate an unnamed relation")
 
-        client = self._control_plane_client()
-        stream_id = client.get_stream_id(relation.render())
+        control_plane_client = self._control_plane_client()
+        data_plane_client = self._data_plane_client()
+        stream_id = control_plane_client.get_stream_id(relation.render())
 
         if not stream_id:
             raise_database_error(
                 f"Error clearing stream `{relation.render()}`: stream doesn't exist"
             )
 
-        client.clear_stream(stream_id)
+        clear_token_response = control_plane_client.get_clear_stream_token(stream_id)
+        data_plane_client.clear_stream(stream_id, clear_token_response.token)
 
     @available.parse_none
     def rename_relation(self, from_relation: BaseRelation, to_relation: BaseRelation) -> None:
