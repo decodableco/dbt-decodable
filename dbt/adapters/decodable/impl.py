@@ -660,7 +660,9 @@ class DecodableAdapter(BaseAdapter):
         return handle.control_plane_client
 
     def _data_plane_client(self) -> DecodableDataPlaneApiClient:
-        handle: DecodableHandler = self.get_thread_connection().handle
+        handle: DecodableHandler = (
+            self.get_thread_connection().handle
+        )  # pyright: ignore [reportGeneralTypeIssues]
         return handle.data_plane_client
 
     @classmethod

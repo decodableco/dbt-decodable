@@ -99,7 +99,7 @@ class PreviewTokensResponse:
 
 @dataclass
 class DataPlaneTokenResponse:
-    data_plane_request: str
+    data_plane_request: Optional[str]
     token: str
 
     @classmethod
