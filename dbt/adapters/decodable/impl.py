@@ -39,7 +39,11 @@ from dbt.adapters.decodable.connections import (
 )
 from dbt.adapters.decodable.handler import DecodableHandler
 from dbt.adapters.decodable.relation import DecodableRelation
-from decodable.client.client import DecodableControlPlaneApiClient, SchemaField, DecodableDataPlaneApiClient
+from decodable.client.client import (
+    DecodableControlPlaneApiClient,
+    SchemaField,
+    DecodableDataPlaneApiClient,
+)
 from decodable.client.types import (
     FieldType,
     PrimaryKey,
@@ -369,7 +373,9 @@ class DecodableAdapter(BaseAdapter):
         if not relation.identifier:
             return []
 
-        stream_info = self._control_plane_client().get_stream_information(stream_id=relation.render())
+        stream_info = self._control_plane_client().get_stream_information(
+            stream_id=relation.render()
+        )
 
         for schema_column in stream_info["schema"]:
             columns.append(
@@ -654,9 +660,7 @@ class DecodableAdapter(BaseAdapter):
         return handle.control_plane_client
 
     def _data_plane_client(self) -> DecodableDataPlaneApiClient:
-        handle: DecodableHandler = (
-            self.get_thread_connection().handle
-        )
+        handle: DecodableHandler = self.get_thread_connection().handle
         return handle.data_plane_client
 
     @classmethod
