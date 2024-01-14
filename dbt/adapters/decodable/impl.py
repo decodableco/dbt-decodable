@@ -19,10 +19,11 @@ from typing import Any, ContextManager, Dict, Hashable, List, Optional, Set, Typ
 
 from agate.table import Table as AgateTable
 from dbt.adapters.base import BaseAdapter, BaseRelation, Column
+from dbt.adapters.base.meta import available
+from dbt.adapters.protocol import AdapterConfig
 from dbt.contracts.connection import Connection
 from dbt.contracts.graph.manifest import Manifest
 from dbt.contracts.graph.parsed import ParsedNode
-from dbt.adapters.base.meta import available
 from dbt.contracts.relation import RelationType
 from dbt.events import AdapterLogger
 from dbt.exceptions import (
@@ -38,8 +39,7 @@ from dbt.adapters.decodable.connections import (
 )
 from dbt.adapters.decodable.handler import DecodableHandler
 from dbt.adapters.decodable.relation import DecodableRelation
-from dbt.adapters.protocol import AdapterConfig
-from decodable.client.client import DecodableControlPlaneApiClient, SchemaField
+from decodable.client.client import DecodableControlPlaneApiClient, SchemaField, DecodableDataPlaneApiClient
 from decodable.client.types import (
     FieldType,
     PrimaryKey,
@@ -189,7 +189,7 @@ class DecodableAdapter(BaseAdapter):
         if relation.identifier is None:
             return
 
-        client = self._client()
+        client = self._control_plane_client()
 
         self.logger.debug(f"Dropping pipeline '{relation}'...")
 
@@ -243,7 +243,7 @@ class DecodableAdapter(BaseAdapter):
         if not relation.identifier:
             raise_compiler_error("Cannot truncate an unnamed relation")
 
-        client = self._client()
+        client = self._control_plane_client()
         stream_id = client.get_stream_id(relation.render())
 
         if not stream_id:
@@ -259,7 +259,7 @@ class DecodableAdapter(BaseAdapter):
 
         Implementors must call self.cache.rename() to preserve cache state.
         """
-        client = self._client()
+        client = self._control_plane_client()
         self.cache_renamed(from_relation, to_relation)
 
         if not from_relation.identifier:
@@ -345,7 +345,7 @@ class DecodableAdapter(BaseAdapter):
     def list_relations_without_caching(self, schema_relation: BaseRelation) -> List[BaseRelation]:
         relations: List[BaseRelation] = []
 
-        stream_list: List[Dict[str, Any]] = self._client().list_streams().items
+        stream_list: List[Dict[str, Any]] = self._control_plane_client().list_streams().items
         for stream in stream_list:
             relations.append(
                 self.Relation.create(
@@ -367,7 +367,7 @@ class DecodableAdapter(BaseAdapter):
         if not relation.identifier:
             return []
 
-        stream_info = self._client().get_stream_information(stream_id=relation.render())
+        stream_info = self._control_plane_client().get_stream_information(stream_id=relation.render())
 
         for schema_column in stream_info["schema"]:
             columns.append(
@@ -384,7 +384,7 @@ class DecodableAdapter(BaseAdapter):
         watermark: Optional[str] = None,
         primary_key: Optional[str] = None,
     ) -> bool:
-        client = self._client()
+        client = self._control_plane_client()
 
         new_pipe_sql = self._wrap_as_pipeline(relation.render(), sql)
         fields: List[Dict[str, str]] = client.get_stream_from_sql(new_pipe_sql)["schema"]
@@ -452,7 +452,7 @@ class DecodableAdapter(BaseAdapter):
         if not model:
             self.logger.debug(f"Model {relation.render()} not found in dbt graph")
 
-        client = self._client()
+        client = self._control_plane_client()
 
         fields: List[Dict[str, str]] = client.get_stream_from_sql(
             self._wrap_as_pipeline(relation.render(), sql)
@@ -537,7 +537,7 @@ class DecodableAdapter(BaseAdapter):
 
             schema.append(SchemaField(name=col_name, type=field_type))
 
-        client = self._client()
+        client = self._control_plane_client()
 
         self.logger.debug(f"Creating connection and stream for seed `{table_name}`...")
         response = client.create_connection(name=table_name, schema=schema)
@@ -550,7 +550,7 @@ class DecodableAdapter(BaseAdapter):
     @available
     def send_seed_as_events(self, seed_name: str, data: AgateTable):
         self.logger.debug(f"Sending data to connection `{seed_name}`")
-        client = self._client()
+        client = self._control_plane_client()
 
         conn_id = client.get_connection_id(seed_name)
         if not conn_id:
@@ -576,7 +576,7 @@ class DecodableAdapter(BaseAdapter):
 
     @available
     def reactivate_connection(self, connection: Relation):
-        client = self._client()
+        client = self._control_plane_client()
 
         conn_id = client.get_connection_id(connection.render())
         if not conn_id:
@@ -586,7 +586,7 @@ class DecodableAdapter(BaseAdapter):
 
     @available
     def stop_pipeline(self, pipe: Relation):
-        client = self._client()
+        client = self._control_plane_client()
 
         pipe_id = client.get_pipeline_id(pipe.render())
         if not pipe_id:
@@ -596,7 +596,7 @@ class DecodableAdapter(BaseAdapter):
 
     @available
     def delete_pipeline(self, pipe: Relation):
-        client = self._client()
+        client = self._control_plane_client()
 
         pipeline_id = client.get_pipeline_id(pipe.render())
         if pipeline_id:
@@ -607,7 +607,7 @@ class DecodableAdapter(BaseAdapter):
 
     @available
     def delete_stream(self, stream: Relation, skip_errors: bool = False):
-        client = self._client()
+        client = self._control_plane_client()
 
         stream_id = client.get_stream_id(stream.render())
         if not stream_id:
@@ -623,7 +623,7 @@ class DecodableAdapter(BaseAdapter):
 
     @available
     def delete_connection(self, conn: Relation):
-        client = self._client()
+        client = self._control_plane_client()
 
         conn_id = client.get_connection_id(conn.render())
         if not conn_id:
@@ -645,11 +645,17 @@ class DecodableAdapter(BaseAdapter):
             return False
         return credentials.materialize_tests
 
-    def _client(self) -> DecodableControlPlaneApiClient:
+    def _control_plane_client(self) -> DecodableControlPlaneApiClient:
         handle: DecodableHandler = (
             self.get_thread_connection().handle
         )  # pyright: ignore [reportGeneralTypeIssues]
         return handle.control_plane_client
+
+    def _data_plane_client(self) -> DecodableDataPlaneApiClient:
+        handle: DecodableHandler = (
+            self.get_thread_connection().handle
+        )
+        return handle.data_plane_client
 
     @classmethod
     def _get_model_schema_hints(cls, model: ParsedNode) -> Set[SchemaField]:
