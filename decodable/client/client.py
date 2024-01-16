@@ -97,6 +97,22 @@ class PreviewTokensResponse:
         )
 
 
+@dataclass
+class DataPlaneTokenResponse:
+    data_plane_request: Optional[str]
+    token: str
+
+    @classmethod
+    def from_dict(cls, response: Dict[str, Any]) -> DataPlaneTokenResponse:
+        return cls(
+            # Some requests don't include a body, so check whether it's present
+            data_plane_request=response["data_plane_request"]
+            if "data_plane_request" in response
+            else None,
+            token=response["token"],
+        )
+
+
 class DecodableAPIException(Exception):
     @classmethod
     def category(cls) -> str:
@@ -168,6 +184,11 @@ class DecodableDataPlaneApiClient:
             additional_headers={"decodable-token": next_token},
         )
         return PreviewResponse.from_dict(response.json())
+
+    def clear_stream(self, stream_id: str, token: str) -> None:
+        self._post_api_request(
+            bearer_token=token, endpoint_url=f"{self.config.api_url}/streams/{stream_id}/clear"
+        )
 
     def _get_api_request(
         self,
@@ -291,10 +312,12 @@ class DecodableControlPlaneApiClient:
             endpoint_url=f"{self.config.decodable_api_url()}/streams/{stream_id}"
         )
 
-    def clear_stream(self, stream_id: str) -> None:
-        self._post_api_request(
-            payload={}, endpoint_url=f"{self.config.decodable_api_url()}/streams/{stream_id}/clear"
+    def get_clear_stream_token(self, stream_id: str) -> DataPlaneTokenResponse:
+        response = self._post_api_request(
+            payload={},
+            endpoint_url=f"{self.config.decodable_api_url()}/streams/{stream_id}/clear/token",
         )
+        return DataPlaneTokenResponse.from_dict(response.json())
 
     def list_pipelines(self) -> ApiResponse:
         response = self._get_api_request(
