@@ -15,7 +15,7 @@
  */
 
 {% macro decodable__create_table_as(temporary, relation, sql) -%}
-  {% set watermark = config.get('watermark') %}
-  {% set primary_key = config.get('primary_key') %}
-  {% do adapter.create_table(sql, temporary, relation, graph.nodes, watermark, primary_key) %}
+  {% set watermarks = config.get('watermarks', []) %}
+  {% set primary_key = config.get('primary_key', []) %}
+  {% do adapter.create_table(sql, temporary, relation, graph.nodes, watermarks, primary_key) %}
 {%- endmacro %}

@@ -1,4 +1,4 @@
-{{ config(primary_key="method") }}
+{{ config(primary_key=["method"]) }}
 
 SELECT CAST(envoy['method'] AS STRING)       AS `method`,
        SUM(CAST(envoy['bytes_sent'] AS INT)) AS `total_bytes_sent`

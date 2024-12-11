@@ -14,8 +14,8 @@
 #  limitations under the License.
 #
 
-from dataclasses import dataclass
-from typing import Any, ContextManager, Dict, Hashable, List, Optional, Set, Type
+from dataclasses import dataclass, field as dataclass_field
+from typing import Any, ContextManager, Dict, Hashable, List, Optional, Set, Type, Sequence
 
 from agate.table import Table as AgateTable
 from dbt.adapters.base import BaseAdapter, BaseRelation, Column
@@ -41,12 +41,10 @@ from dbt.adapters.decodable.handler import DecodableHandler
 from dbt.adapters.decodable.relation import DecodableRelation
 from decodable.client.client import (
     DecodableControlPlaneApiClient,
-    SchemaField,
     DecodableDataPlaneApiClient,
 )
 from decodable.client.types import (
     FieldType,
-    PrimaryKey,
     String,
     Boolean,
     TimestampLocal,
@@ -55,10 +53,13 @@ from decodable.client.types import (
     Decimal,
 )
 
+from decodable.client.schema import SchemaV2, SchemaField, PhysicalSchemaField, Constraints
+
 
 @dataclass
 class DecodableConfig(AdapterConfig):
-    watermark: Optional[str] = None
+    watermarks: List[Dict[str, str]] = dataclass_field(default_factory=list)
+    primary_key: List[str] = dataclass_field(default_factory=list)
 
 
 class DecodableAdapter(BaseAdapter):
@@ -377,9 +378,9 @@ class DecodableAdapter(BaseAdapter):
             stream_id=relation.render()
         )
 
-        for schema_column in stream_info["schema"]:
+        for schema_column in stream_info["schema_v2"]["fields"]:
             columns.append(
-                Column.create(name=schema_column["name"], label_or_dtype=schema_column["type"])
+                Column.create(name=schema_column["name"], label_or_dtype=schema_column.get("type"))
             )
 
         return columns
@@ -389,22 +390,19 @@ class DecodableAdapter(BaseAdapter):
         self,
         sql: str,
         relation: BaseRelation,
-        watermark: Optional[str] = None,
-        primary_key: Optional[str] = None,
+        watermarks: List[Dict[str, str]],
+        primary_key: List[str],
     ) -> bool:
         client = self._control_plane_client()
 
         new_pipe_sql = self._wrap_as_pipeline(relation.render(), sql)
-        fields: List[Dict[str, str]] = client.get_stream_from_sql(new_pipe_sql)["schema"]
+        schema_json: Dict[str, Any] = client.get_stream_from_sql(new_pipe_sql)["schema_v2"]
 
-        schema: List[SchemaField]
+        new_schema: SchemaV2
         try:
-            schema = self._schema_from_json(fields)
-            # The API returns the current primary key field. For the to-be value in this comparison, we set it to
-            # the field specified via config.
-            self._remove_primary_key(schema)
-            if primary_key:
-                self._set_primary_key(primary_key, schema)
+            new_schema = SchemaV2.from_json_components(
+                schema_json["fields"], watermarks, primary_key
+            )
         except Exception as err:
             raise_compiler_error(f"Error checking changes to the '{relation}' stream: {err}")
 
@@ -421,20 +419,13 @@ class DecodableAdapter(BaseAdapter):
         if pipe_info["sql"] != new_pipe_sql:
             return True
 
-        if stream_info["watermark"] != watermark:
-            return True
-
-        existing_schema: List[SchemaField]
-        existing_schema_fields = stream_info["schema"]
+        existing_schema: SchemaV2
         try:
-            existing_schema = self._schema_from_json(existing_schema_fields)
+            existing_schema = SchemaV2.from_json(stream_info["schema_v2"])
         except Exception as err:
             raise_compiler_error(f"Error checking changes to the '{relation}' stream: {err}")
 
-        if existing_schema != schema:
-            return True
-
-        return False
+        return existing_schema != new_schema
 
     @available
     def create_table(
@@ -443,8 +434,8 @@ class DecodableAdapter(BaseAdapter):
         temporary: bool,
         relation: BaseRelation,
         nodes: Dict[str, Any],
-        watermark: Optional[str] = None,
-        primary_key: Optional[str] = None,
+        watermarks: List[Dict[str, str]],
+        primary_key: List[str],
     ) -> None:
         if not relation.identifier:
             raise_compiler_error("Cannot create an unnamed relation")
@@ -464,20 +455,24 @@ class DecodableAdapter(BaseAdapter):
 
         fields: List[Dict[str, str]] = client.get_stream_from_sql(
             self._wrap_as_pipeline(relation.render(), sql)
-        )["schema"]
+        )["schema_v2"]["fields"]
 
         if not fields:
             raise_database_error(
                 f"Error creating the {relation} stream: empty schema returned for sql:\n{sql}"
             )
 
-        schema: List[SchemaField]
+        schema: SchemaV2
         try:
-            schema = self._schema_from_json(fields)
+            schema = SchemaV2.from_json_components(
+                fields,
+                watermarks,
+                primary_key,
+            )
         except Exception as err:
             raise_compiler_error(f"Error creating the {relation} stream: {err}")
 
-        schema_hints: Set[SchemaField]
+        schema_hints: Set[PhysicalSchemaField]
         try:
             if model:
                 schema_hints = self._get_model_schema_hints(model)
@@ -486,19 +481,14 @@ class DecodableAdapter(BaseAdapter):
         except Exception as err:
             raise_parsing_error(f"Error creating the {relation} stream: {err}")
 
-        if not schema_hints.issubset(schema):
+        if not schema_hints.issubset(schema.fields):
             self.logger.warning(
-                f"Column hints for '{name}' don't match the resulting schema:\n{self._pretty_schema(list(schema_hints), 1, 'hints')}\n{self._pretty_schema(schema, 1, 'schema')}"
+                f"Column hints for '{name}' don't match the resulting schema:\n{self._pretty_schema(list(schema_hints), 1, 'hints')}\n{self._pretty_schema(schema.fields, 1, 'schema')}"
             )
-
-        if primary_key:
-            for field in schema:
-                if field.name == primary_key:
-                    field.type = PrimaryKey(field.type)
 
         stream_id = client.get_stream_id(relation.render())
         if not stream_id:
-            client.create_stream(relation.render(), schema, watermark)
+            client.create_stream(relation.render(), schema)
             self.logger.debug(f"Stream '{relation}' successfully created!")
         else:
             raise_database_error(f"Error creating the {relation} stream: stream already exists!")
@@ -516,7 +506,7 @@ class DecodableAdapter(BaseAdapter):
     def create_seed_table(
         self, table_name: str, agate_table: AgateTable, column_override: Dict[str, str]
     ):
-        schema: List[SchemaField] = []
+        schema_fields: List[PhysicalSchemaField] = []
 
         column_names: tuple[str] = agate_table.column_names
         for ix, col_name in enumerate(column_names):
@@ -543,12 +533,14 @@ class DecodableAdapter(BaseAdapter):
                     f"Inferred type `{type}` for column `{col_name}` doesn't match any of Decodable's known types"
                 )
 
-            schema.append(SchemaField(name=col_name, type=field_type))
+            schema_fields.append(PhysicalSchemaField(name=col_name, type=field_type))
 
         client = self._control_plane_client()
 
         self.logger.debug(f"Creating connection and stream for seed `{table_name}`...")
-        response = client.create_connection(name=table_name, schema=schema)
+        response = client.create_connection(
+            name=table_name, schema=SchemaV2(schema_fields, [], Constraints(primary_key=[]))
+        )
         self.logger.debug(f"Connection and stream `{table_name}` successfully created!")
 
         self.logger.debug(f"Activating connection `{table_name}`...")
@@ -666,55 +658,21 @@ class DecodableAdapter(BaseAdapter):
         return handle.data_plane_client
 
     @classmethod
-    def _get_model_schema_hints(cls, model: ParsedNode) -> Set[SchemaField]:
-        schema: Set[SchemaField] = set()
-        for column in model.columns.values():
-            name: str = column.name
-            data_type: Optional[str] = column.data_type
-
-            if not data_type:
-                continue
-
-            t = FieldType.from_str(data_type)
-            if not t:
-                raise_compiler_error(f"Type '{data_type}' not recognized")
-
-            schema.add(SchemaField(name=name, type=t))
-
-        return schema
-
-    @staticmethod
-    def _set_primary_key(primary_key_field: str, schema: List[SchemaField]) -> None:
-        """
-        Sets the primary key to the specified field in the provided schema. Does nothing if the schema does not contain
-        the specified field.
-        """
-        for field in schema:
-            if isinstance(field.type, PrimaryKey):
-                raise ValueError(
-                    f"Trying to set primary key to {primary_key_field}, but schema already has a primary "
-                    f"key assigned to {field.name}"
-                )
-            if field.name == primary_key_field:
-                field.type = PrimaryKey(field.type)
-
-    @staticmethod
-    def _remove_primary_key(schema: List[SchemaField]) -> None:
-        """
-        Removes the primary key from the provided schema (if present).
-        """
-        for field in schema:
-            if isinstance(field.type, PrimaryKey):
-                field.type = field.type.inner_type
+    def _get_model_schema_hints(cls, model: ParsedNode) -> Set[PhysicalSchemaField]:
+        return {
+            PhysicalSchemaField.get(column.name, column.data_type)
+            for column in model.columns.values()
+            if column.data_type
+        }
 
     @staticmethod
     def _pretty_schema(
-        schema: List[SchemaField], indent: int = 0, name: Optional[str] = None
+        schema: Sequence[SchemaField], indent: int = 0, name: Optional[str] = None
     ) -> str:
         fields = ""
-        for field in sorted(schema, key=lambda sf: sf.name):
+        for field_ in sorted(schema, key=lambda sf: sf.name):
             i = "\t" * (indent + 1)
-            fields += f"{i}{field.name}: {field.type},\n"
+            fields += f"{i}{field_},\n"
 
         i = "\t" * indent
         prefix = f"{i}{{"
@@ -726,16 +684,6 @@ class DecodableAdapter(BaseAdapter):
             suffix = "}"
 
         return f"{prefix}\n{fields}{suffix}"
-
-    @classmethod
-    def _schema_from_json(cls, json: List[Dict[str, str]]) -> List[SchemaField]:
-        schema: List[SchemaField] = []
-        for field in json:
-            t = FieldType.from_str(field["type"])
-            if not t:
-                raise_compiler_error(f"Type '{field['type']}' not recognized")
-            schema.append(SchemaField(name=field["name"], type=t))
-        return schema
 
     @classmethod
     def _wrap_as_pipeline(cls, sink: str, sql: str) -> str:

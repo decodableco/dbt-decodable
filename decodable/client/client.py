@@ -22,11 +22,11 @@ import requests
 from typing_extensions import override
 
 from decodable.client.api import Connector, ConnectionType, StartPosition
-from decodable.client.types import FieldType
 from decodable.config.client_config import (
     DecodableControlPlaneClientConfig,
     DecodableDataPlaneClientConfig,
 )
+from decodable.client.schema import SchemaV2
 
 
 @dataclass
@@ -152,17 +152,6 @@ def raise_api_exception(code: int, reason: str):
         raise DecodableAPIException(reason)
 
 
-@dataclass
-class SchemaField:
-    name: str
-    type: FieldType
-
-    def __hash__(self) -> int:
-        res = hash(self.name)
-        res ^= hash(self.type)
-        return res
-
-
 class DecodableDataPlaneApiClient:
     config: DecodableDataPlaneClientConfig
 
@@ -236,6 +225,8 @@ class DecodableDataPlaneApiClient:
 class DecodableControlPlaneApiClient:
     config: DecodableControlPlaneClientConfig
 
+    _schema_v2_request_params: dict[str, str] = {"response_schema_v": "v2"}
+
     def __init__(self, config: DecodableControlPlaneClientConfig):
         self.config = config
 
@@ -269,6 +260,7 @@ class DecodableControlPlaneApiClient:
         endpoint_url = f"{self.config.decodable_api_url()}/streams/{stream_id}"
         response = requests.get(
             url=endpoint_url,
+            params=self._schema_v2_request_params,
             headers={
                 "accept": "application/json",
                 "authorization": f"Bearer {self.config.access_token}",
@@ -281,26 +273,21 @@ class DecodableControlPlaneApiClient:
             raise_api_exception(response.status_code, response.json())
 
     def get_stream_from_sql(self, sql: str) -> Dict[str, Any]:
-        payload = {"sql": sql}
-
         return self._post_api_request(
-            payload=payload,
+            payload={"sql": sql},
+            params=self._schema_v2_request_params,
             endpoint_url=f"{self.config.decodable_api_url()}/pipelines/outputStream",
         ).json()
 
     def create_stream(
-        self, name: str, schema_fields: List[SchemaField], watermark: Optional[str] = None
+        self,
+        name: str,
+        schema: SchemaV2,
     ) -> ApiResponse:
-        payload = {
-            "schema": [{"name": field.name, "type": repr(field.type)} for field in schema_fields],
-            "name": name,
-        }
-
-        if watermark:
-            payload["watermark"] = watermark
-
         return self._post_api_request(
-            payload=payload, endpoint_url=f"{self.config.decodable_api_url()}/streams"
+            payload={"name": name, "schema_v2": schema.to_dict()},
+            params=self._schema_v2_request_params,
+            endpoint_url=f"{self.config.decodable_api_url()}/streams",
         ).json()
 
     def update_stream(self, stream_id: str, props: Dict[str, Any]) -> ApiResponse:
@@ -436,7 +423,7 @@ class DecodableControlPlaneApiClient:
     def create_connection(
         self,
         name: str,
-        schema: List[SchemaField],
+        schema: SchemaV2,
         stream: Optional[str] = None,
         connector: Connector = Connector.REST,
         connection_type: ConnectionType = ConnectionType.SOURCE,
@@ -448,23 +435,26 @@ class DecodableControlPlaneApiClient:
             "name": name,
             "connector": connector.value,
             "type": connection_type.value,
-            "schema": [{"name": field.name, "type": repr(field.type)} for field in schema],
+            "schema_v2": schema.to_dict(),
         }
 
         return self._post_api_request(
             payload=payload,
+            params=self._schema_v2_request_params,
             endpoint_url=f"{self.config.decodable_api_url()}/connections?stream_name={stream}",
         ).json()
 
     def activate_connection(self, conn_id: str) -> Dict[str, Any]:
         return self._post_api_request(
             payload={},
+            params=self._schema_v2_request_params,
             endpoint_url=f"{self.config.decodable_api_url()}/connections/{conn_id}/activate",
         ).json()
 
     def deactivate_connection(self, conn_id: str) -> Dict[str, Any]:
         return self._post_api_request(
             payload={},
+            params=self._schema_v2_request_params,
             endpoint_url=f"{self.config.decodable_api_url()}/connections/{conn_id}/deactivate",
         ).json()
 
@@ -493,9 +483,12 @@ class DecodableControlPlaneApiClient:
     def _parse_response(self, result: Any) -> ApiResponse:
         return ApiResponse(items=result["items"], next_page_token=result["next_page_token"])
 
-    def _post_api_request(self, payload: Any, endpoint_url: str) -> requests.Response:
+    def _post_api_request(
+        self, payload: Any, endpoint_url: str, params: dict[str, str] | None = None
+    ) -> requests.Response:
         response = requests.post(
             url=endpoint_url,
+            params=params,
             json=payload,
             headers={
                 "accept": "application/json",
