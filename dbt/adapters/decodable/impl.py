@@ -30,16 +30,17 @@ from typing import (
 from agate.table import Table as AgateTable
 from dbt.adapters.base import BaseAdapter, BaseRelation, Column
 from dbt.adapters.base.meta import available
+from dbt.adapters.contracts.relation import RelationType
+from dbt.adapters.events.logging import AdapterLogger
 from dbt.adapters.protocol import AdapterConfig
-from dbt.contracts.connection import Connection
-from dbt.contracts.graph.manifest import Manifest
-from dbt.contracts.graph.parsed import ParsedNode
-from dbt.contracts.relation import RelationType
-from dbt.events import AdapterLogger
+from dbt.contracts.graph.nodes import ParsedNode
 from dbt.exceptions import (
     NotImplementedException,
     raise_compiler_error,
     raise_database_error,
+    CompilationError,
+    MissingRelationError,
+    ParsingError
 )
 
 from dbt.adapters.decodable.connections import (
@@ -81,7 +82,7 @@ class DecodableAdapter(BaseAdapter):
     Controls actual implmentation of adapter, and ability to override certain methods.
     """
 
-    Relation: Type[DecodableRelation] = DecodableRelation
+    # Relation: Type[DecodableRelation] = DecodableRelation
     AdapterSpecificConfigs: Type[AdapterConfig] = DecodableConfig
     ConnectionManager = DecodableAdapterConnectionManager
 
@@ -90,55 +91,55 @@ class DecodableAdapter(BaseAdapter):
 
     # AdapterProtocol impl
 
-    def set_query_header(self, manifest: Manifest) -> None:
-        raise NotImplementedError()
-
-    @staticmethod
-    def get_thread_identifier() -> Hashable:
-        raise NotImplementedError()
-
-    def get_thread_connection(self) -> Connection:
-        return self.connections.get_thread_connection()
-
-    def set_thread_connection(self, conn: Connection) -> None:
-        self.set_thread_connection(conn)
-
-    def get_if_exists(self) -> Optional[Connection]:
-        raise NotImplementedError()
-
-    def clear_thread_connection(self) -> None:
-        self.connections.clear_thread_connection()
-
-    def exception_handler(self, sql: str) -> ContextManager[Any]:
-        raise NotImplementedError()
-
-    def set_connection_name(self, name: Optional[str] = None) -> Connection:
-        return self.connections.set_connection_name(name)
-
-    def cancel_open(self) -> Optional[List[str]]:
-        raise NotImplementedError()
-
-    @classmethod
-    def open(cls, connection: Connection) -> Connection:
-        raise NotImplementedError()
-
-    def release(self) -> None:
-        raise NotImplementedError()
-
-    def cleanup_all(self) -> None:
-        raise NotImplementedError()
-
-    def begin(self) -> None:
-        raise NotImplementedError()
-
-    def commit(self) -> None:
-        raise NotImplementedError()
-
-    @classmethod
-    def close(cls, connection: Connection) -> Connection:
-        raise NotImplementedError()
-
-    # AdapterProtocol impl end
+    # def set_query_header(self, manifest: Manifest) -> None:
+    #     raise NotImplementedError()
+    #
+    # @staticmethod
+    # def get_thread_identifier() -> Hashable:
+    #     raise NotImplementedError()
+    #
+    # def get_thread_connection(self) -> Connection:
+    #     return self.connections.get_thread_connection()
+    #
+    # def set_thread_connection(self, conn: Connection) -> None:
+    #     self.set_thread_connection(conn)
+    #
+    # def get_if_exists(self) -> Optional[Connection]:
+    #     raise NotImplementedError()
+    #
+    # def clear_thread_connection(self) -> None:
+    #     self.connections.clear_thread_connection()
+    #
+    # def exception_handler(self, sql: str) -> ContextManager[Any]:
+    #     raise NotImplementedError()
+    #
+    # def set_connection_name(self, name: Optional[str] = None) -> Connection:
+    #     return self.connections.set_connection_name(name)
+    #
+    # def cancel_open(self) -> Optional[List[str]]:
+    #     raise NotImplementedError()
+    #
+    # @classmethod
+    # def open(cls, connection: Connection) -> Connection:
+    #     raise NotImplementedError()
+    #
+    # def release(self) -> None:
+    #     raise NotImplementedError()
+    #
+    # def cleanup_all(self) -> None:
+    #     raise NotImplementedError()
+    #
+    # def begin(self) -> None:
+    #     raise NotImplementedError()
+    #
+    # def commit(self) -> None:
+    #     raise NotImplementedError()
+    #
+    # @classmethod
+    # def close(cls, connection: Connection) -> Connection:
+    #     raise NotImplementedError()
+    #
+    # # AdapterProtocol impl end
 
     @classmethod
     def date_function(cls):
@@ -203,7 +204,7 @@ class DecodableAdapter(BaseAdapter):
         self.cache_dropped(relation)
 
         if relation.type is None:
-            raise_compiler_error(f"Tried to drop relation {relation}, but its type is null.")
+            raise CompilationError(f"Tried to drop relation {relation}, but its type is null.")
 
         if relation.identifier is None:
             return
@@ -260,14 +261,14 @@ class DecodableAdapter(BaseAdapter):
     def truncate_relation(self, relation: BaseRelation) -> None:
         """Truncate the given relation."""
         if not relation.identifier:
-            raise_compiler_error("Cannot truncate an unnamed relation")
+            raise CompilationError("Cannot truncate an unnamed relation")
 
         control_plane_client = self._control_plane_client()
         data_plane_client = self._data_plane_client()
         stream_id = control_plane_client.get_stream_id(relation.render())
 
         if not stream_id:
-            raise_database_error(
+            raise MissingRelationError(
                 f"Error clearing stream `{relation.render()}`: stream doesn't exist"
             )
 
@@ -284,15 +285,15 @@ class DecodableAdapter(BaseAdapter):
         self.cache_renamed(from_relation, to_relation)
 
         if not from_relation.identifier:
-            raise_compiler_error("Cannot rename an unnamed relation")
+            raise CompilationError("Cannot rename an unnamed relation")
 
         stream_id = client.get_stream_id(from_relation.render())
 
         if not stream_id:
-            raise_database_error(f"Cannot rename '{from_relation}': stream does not exist")
+            raise MissingRelationError(f"Cannot rename '{from_relation}': stream does not exist")
 
         if not to_relation.identifier:
-            raise_compiler_error(f"Cannot rename relation {from_relation} to nothing")
+            raise CompilationError(f"Cannot rename relation {from_relation} to nothing")
 
         client.update_stream(stream_id=stream_id, props={"name": to_relation.render()})
         self.logger.debug(f"Renamed stream '{from_relation}' to '{to_relation}'")
@@ -300,13 +301,13 @@ class DecodableAdapter(BaseAdapter):
         pipeline_id = client.get_pipeline_id(from_relation.render())
 
         if not pipeline_id:
-            raise_database_error(
+            raise MissingRelationError(
                 f"Cannot rename '{from_relation.render()}': pipeline does not exist"
             )
 
         pipe_info = client.get_pipeline_information(pipeline_id)
         if not pipe_info["sql"]:
-            raise_database_error(
+            raise MissingRelationError(
                 f"Cannot rename relation '{from_relation}': pipeline returned no sql"
             )
         sql: str = pipe_info["sql"]
@@ -359,9 +360,10 @@ class DecodableAdapter(BaseAdapter):
         :param self.Relation current: A relation that currently exists in the
             database with columns of unspecified types.
         """
-        raise NotImplementedException(
-            "`expand_target_column_types` is not implemented for this adapter!"
-        )
+        pass
+        # raise NotImplementedException(
+        #     "`expand_target_column_types` is not implemented for this adapter!"
+        # )
 
     def list_relations_without_caching(self, schema_relation: BaseRelation) -> List[BaseRelation]:
         relations: List[BaseRelation] = []
@@ -427,7 +429,7 @@ class DecodableAdapter(BaseAdapter):
         output_stream: Dict[str, Any],
     ) -> None:
         if not relation.identifier:
-            raise_compiler_error("Cannot create an unnamed relation")
+            raise CompilationError("Cannot create an unnamed relation")
 
         self.logger.debug(f"Creating table {relation}")
 
@@ -509,7 +511,7 @@ class DecodableAdapter(BaseAdapter):
         for ix, col_name in enumerate(column_names):
             type: Optional[str] = self.convert_type(agate_table, ix)
             if not type:
-                raise_compiler_error(
+                raise CompilationError(
                     f"Couldn't infer type for column `{col_name}` in seed `{table_name}`"
                 )
 
@@ -526,7 +528,7 @@ class DecodableAdapter(BaseAdapter):
                     field_type = override_field_type
 
             if not field_type:
-                raise_compiler_error(
+                raise CompilationError(
                     f"Inferred type `{type}` for column `{col_name}` doesn't match any of Decodable's known types"
                 )
 
@@ -552,7 +554,7 @@ class DecodableAdapter(BaseAdapter):
 
         conn_id = client.get_connection_id(seed_name)
         if not conn_id:
-            raise_database_error(
+            raise MissingRelationError(
                 f"Trying to send seed events to a non-existing connection `{seed_name}`"
             )
             assert False, "unreachable"
@@ -579,8 +581,7 @@ class DecodableAdapter(BaseAdapter):
 
         conn_id = client.get_connection_id(connection.render())
         if not conn_id:
-            raise_database_error(f"Unable to reactivate connection: '{connection}' does not exist")
-            assert False, "unreachable"
+            raise MissingRelationError(f"Unable to reactivate connection: '{connection}' does not exist")
 
         client.activate_connection(conn_id)
 
@@ -590,7 +591,7 @@ class DecodableAdapter(BaseAdapter):
 
         pipe_id = client.get_pipeline_id(pipe.render())
         if not pipe_id:
-            raise_database_error(f"Unable to deactivate pipeline: '{pipe}' does not exist")
+            raise MissingRelationError(f"Unable to deactivate pipeline: '{pipe}' does not exist")
 
         client.deactivate_pipeline(pipe_id)
 
@@ -611,8 +612,7 @@ class DecodableAdapter(BaseAdapter):
 
         stream_id = client.get_stream_id(stream.render())
         if not stream_id:
-            raise_database_error(f"Unable to delete stream: `{stream}` does not exist")
-            assert False, "unreachable"
+            raise MissingRelationError(f"Unable to delete stream: `{stream}` does not exist")
 
         try:
             client.delete_stream(stream_id)
@@ -620,7 +620,7 @@ class DecodableAdapter(BaseAdapter):
             if skip_errors:
                 self.logger.warning(f"Deleting stream `{stream}` failed: {e}")
             else:
-                raise_database_error(f"Deleting stream `{stream}` failed: {e}")
+                raise MissingRelationError(f"Deleting stream `{stream}` failed: {e}")
 
     @available
     def delete_connection(self, conn: BaseRelation):
@@ -628,8 +628,7 @@ class DecodableAdapter(BaseAdapter):
 
         conn_id = client.get_connection_id(conn.render())
         if not conn_id:
-            raise_database_error(f"Unable to delete connection: `{conn}` does not exist")
-            assert False, "unreachable"
+            raise MissingRelationError(f"Unable to delete connection: `{conn}` does not exist")
 
         client.deactivate_connection(conn_id)
         client.delete_connection(conn_id)
@@ -642,20 +641,20 @@ class DecodableAdapter(BaseAdapter):
     def should_materialize_tests(self) -> bool:
         credentials: Optional[
             DecodableAdapterCredentials
-        ] = self.get_thread_connection().credentials
+        ] = self.connections.get_thread_connection().credentials
         if not credentials:
             return False
         return credentials.materialize_tests
 
     def _control_plane_client(self) -> DecodableControlPlaneApiClient:
         handle: DecodableHandler = (
-            self.get_thread_connection().handle
+            self.connections.get_thread_connection().handle
         )  # pyright: ignore [reportGeneralTypeIssues]
         return handle.control_plane_client
 
     def _data_plane_client(self) -> DecodableDataPlaneApiClient:
         handle: DecodableHandler = (
-            self.get_thread_connection().handle
+            self.connections.get_thread_connection().handle
         )  # pyright: ignore [reportGeneralTypeIssues]
         return handle.data_plane_client
 
