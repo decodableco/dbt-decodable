@@ -46,7 +46,7 @@ class TestSimpleProject:
     def test_run_seed_test(self, project: Any):
         """
         Seed, then run, then test. Perform cleanup at the end,
-        so that nothing persists on Decodbale.
+        so that nothing persists on Decodable.
         """
 
         # seed seeds

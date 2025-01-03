@@ -17,7 +17,7 @@ from random import randint
 from time import sleep
 from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
 
-from dbt.events import AdapterLogger
+from dbt.adapters.events.logging import AdapterLogger
 
 from decodable.client.api import StartPosition
 from decodable.client.client import DecodableControlPlaneApiClient, DecodableDataPlaneApiClient

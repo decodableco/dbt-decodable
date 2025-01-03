@@ -19,13 +19,13 @@ from typing import Any, Optional, Tuple
 
 from agate.table import Table
 from dbt.adapters.sql.connections import SQLConnectionManager
-from dbt.contracts.connection import (
+from dbt.adapters.contracts.connection import (
     AdapterResponse,
     Connection,
     Credentials,
 )
-from dbt.events import AdapterLogger
-from dbt.exceptions import RuntimeException
+from dbt.adapters.events.logging import AdapterLogger
+from dbt.exceptions import DbtRuntimeError
 
 from dbt.adapters.decodable.handler import DecodableCursor, DecodableHandler
 from decodable.client.api import StartPosition
@@ -99,7 +99,7 @@ class DecodableAdapterConnectionManager(SQLConnectionManager):
             yield
         except Exception as e:
             self.logger.error("Exception thrown during execution: {}".format(str(e)))
-            raise RuntimeException(str(e))
+            raise DbtRuntimeError(str(e))
 
     @classmethod
     def open(cls, connection: Connection) -> Connection:
@@ -108,7 +108,7 @@ class DecodableAdapterConnectionManager(SQLConnectionManager):
         and moves it to the "open" state.
         """
         if not connection.credentials:
-            raise RuntimeException("Cannot open a Decodable connection without credentials")
+            raise DbtRuntimeError("Cannot open a Decodable connection without credentials")
 
         credentials: DecodableAdapterCredentials = connection.credentials
         control_plane_client = DecodableClientFactory.create_control_plane_client(
@@ -125,7 +125,7 @@ class DecodableAdapterConnectionManager(SQLConnectionManager):
                 and len(decodable_connection_test.reason) > 0
             ):
                 error_message = f"\nReason: {decodable_connection_test.reason}"
-            raise RuntimeException(
+            raise DbtRuntimeError(
                 f"Status code: {decodable_connection_test.status_code}. Decodable connection failed. Try running 'decodable login' first{error_message}"
             )
 
@@ -155,9 +155,8 @@ class DecodableAdapterConnectionManager(SQLConnectionManager):
     def commit(self) -> Connection:
         return self.get_thread_connection()
 
-    def execute(
-        self, sql: str, auto_begin: bool = False, fetch: bool = False
-    ) -> Tuple[AdapterResponse, Table]:
+    def execute(self, sql: str, auto_begin: bool = False, fetch: bool = False,
+                **kwargs) -> Tuple[AdapterResponse, Table]:
         sql = self._add_query_comment(sql)
         if fetch:
             _, cursor = self.add_query(sql, auto_begin)
