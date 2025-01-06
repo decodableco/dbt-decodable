@@ -63,7 +63,19 @@ class DecodableAdapter(BaseAdapter):
     Controls actual implmentation of adapter, and ability to override certain methods.
     """
 
+    # FIXME: Temporarily commented out while we debug frozen dataclass issue.
+    #
+    # For some reason the base class is calling cls.from_dict(kwargs) in create() on our
+    # implementation of Relation. This fails with an AttributeError because Relation is
+    # marked as a frozen dataclass (see @dataclass def) which is required because BaseRelation
+    # is also frozen. This means the base class is trying to mutate something it knows must be
+    # immutable which makes no sense. There is a deeper issue here that needs to be worked out.
+    # That said, it's not clear we require a custom implementation of BaseRelation. I've temporarily
+    # updated many of the methods that were referencing Relation to use BaseRelation instead since
+    # they didn't appear to touch any specific members of Relation. It's all very strange.
+    #
     # Relation: Type[DecodableRelation] = DecodableRelation
+
     AdapterSpecificConfigs: Type[AdapterConfig] = DecodableConfig
     ConnectionManager = DecodableAdapterConnectionManager
 
