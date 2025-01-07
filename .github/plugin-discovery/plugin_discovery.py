@@ -5,7 +5,7 @@ import sys
 
 def main():
     out = subprocess.run(["dbt", "--version"], stderr=subprocess.PIPE, text=True)
-    print(out.stderr)
+    print(out.stdout)
     plugin_detected = (
         re.search(r"Plugins:.*\s- decodable: \d+\.\d+\.\d+", out.stderr, flags=re.DOTALL)
         is not None
