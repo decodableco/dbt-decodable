@@ -155,18 +155,19 @@ class DecodableAdapterConnectionManager(SQLConnectionManager):
     def commit(self) -> Connection:
         return self.get_thread_connection()
 
-    def execute(self, sql: str, auto_begin: bool = False, fetch: bool = False,
-                **kwargs) -> Tuple[AdapterResponse, Table]:
+    def execute(  # type: ignore
+        self, sql: str, auto_begin: bool = False, fetch: bool = False
+    ) -> Tuple[AdapterResponse, Table]:
         sql = self._add_query_comment(sql)
         if fetch:
             _, cursor = self.add_query(sql, auto_begin)
             response = self.get_response(cursor)
-            table = self.get_result_from_cursor(cursor)
+            table = self.get_result_from_cursor(cursor, None)
         else:
             response = AdapterResponse("OK")
             cursor = self._dummy_cursor()
             cursor.seed_fake_results()
-            table = self.get_result_from_cursor(cursor)
+            table = self.get_result_from_cursor(cursor, None)
         return response, table
 
     def _dummy_cursor(self) -> DecodableCursor:
