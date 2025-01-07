@@ -155,8 +155,8 @@ class DecodableAdapterConnectionManager(SQLConnectionManager):
     def commit(self) -> Connection:
         return self.get_thread_connection()
 
-    def execute(  # type: ignore
-        self, sql: str, auto_begin: bool = False, fetch: bool = False
+    def execute(
+        self, sql: str, auto_begin: bool = False, fetch: bool = False, limit: Optional[int] = None
     ) -> Tuple[AdapterResponse, Table]:
         sql = self._add_query_comment(sql)
         if fetch:

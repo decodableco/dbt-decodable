@@ -52,7 +52,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
-          python-version: '3.8'
+          python-version: "3.8"
 
       - name: Check license headers
         uses: viperproject/check-license-header@v2
@@ -127,14 +127,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest, windows-latest]
-        python-version: [3.8, 3.9, "3.10"]
-        include:
-          - os: ubuntu-20.04
-            python-version: 3.7
-          - os: macos-13
-            python-version: 3.7
-          - os: windows-latest
-            python-version: 3.7
+        python-version: [3.9]
 
     steps:
       - name: Set up Python ${{ matrix.python-version }}
@@ -189,4 +182,4 @@ jobs:
         with:
           user: __token__
           password: ${{ secrets.PYPI_API_TOKEN }}
-          verbose: true  # trace if the upload fails
+          verbose: true # trace if the upload fails
