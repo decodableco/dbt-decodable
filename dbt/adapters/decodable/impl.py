@@ -15,7 +15,7 @@
 #
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Set, Type
+from typing import Any, Dict, Hashable, List, Optional, Set, Type, ContextManager
 
 from agate.table import Table as AgateTable
 from dbt.adapters.base import BaseAdapter, BaseRelation, Column
@@ -24,10 +24,9 @@ from dbt.adapters.contracts.relation import RelationType
 from dbt.adapters.events.logging import AdapterLogger
 from dbt.adapters.protocol import AdapterConfig
 from dbt.contracts.graph.nodes import ParsedNode
-from dbt.exceptions import (
-    CompilationError,
-    MissingRelationError,
-    ParsingError
+from dbt.exceptions import CompilationError, MissingRelationError, ParsingError
+from dbt.adapters.contracts.connection import (
+    Connection,
 )
 
 from dbt.adapters.decodable.connections import (
@@ -35,7 +34,8 @@ from dbt.adapters.decodable.connections import (
     DecodableAdapterCredentials,
 )
 from dbt.adapters.decodable.handler import DecodableHandler
-from dbt.adapters.decodable.relation import DecodableRelation
+
+# from dbt.adapters.decodable.relation import DecodableRelation
 from decodable.client.client import (
     DecodableControlPlaneApiClient,
     SchemaField,
@@ -84,55 +84,55 @@ class DecodableAdapter(BaseAdapter):
 
     # AdapterProtocol impl
 
-    # def set_query_header(self, manifest: Manifest) -> None:
-    #     raise NotImplementedError()
-    #
-    # @staticmethod
-    # def get_thread_identifier() -> Hashable:
-    #     raise NotImplementedError()
-    #
-    # def get_thread_connection(self) -> Connection:
-    #     return self.connections.get_thread_connection()
-    #
-    # def set_thread_connection(self, conn: Connection) -> None:
-    #     self.set_thread_connection(conn)
-    #
-    # def get_if_exists(self) -> Optional[Connection]:
-    #     raise NotImplementedError()
-    #
-    # def clear_thread_connection(self) -> None:
-    #     self.connections.clear_thread_connection()
-    #
-    # def exception_handler(self, sql: str) -> ContextManager[Any]:
-    #     raise NotImplementedError()
-    #
-    # def set_connection_name(self, name: Optional[str] = None) -> Connection:
-    #     return self.connections.set_connection_name(name)
-    #
-    # def cancel_open(self) -> Optional[List[str]]:
-    #     raise NotImplementedError()
-    #
-    # @classmethod
-    # def open(cls, connection: Connection) -> Connection:
-    #     raise NotImplementedError()
-    #
-    # def release(self) -> None:
-    #     raise NotImplementedError()
-    #
-    # def cleanup_all(self) -> None:
-    #     raise NotImplementedError()
-    #
-    # def begin(self) -> None:
-    #     raise NotImplementedError()
-    #
-    # def commit(self) -> None:
-    #     raise NotImplementedError()
-    #
-    # @classmethod
-    # def close(cls, connection: Connection) -> Connection:
-    #     raise NotImplementedError()
-    #
-    # # AdapterProtocol impl end
+    def set_query_header(self, query_header_context: Dict[str, Any]) -> None:
+        raise NotImplementedError()
+
+    @staticmethod
+    def get_thread_identifier() -> Hashable:
+        raise NotImplementedError()
+
+    def get_thread_connection(self) -> Connection:
+        return self.connections.get_thread_connection()
+
+    def set_thread_connection(self, conn: Connection) -> None:
+        self.set_thread_connection(conn)
+
+    def get_if_exists(self) -> Optional[Connection]:
+        raise NotImplementedError()
+
+    def clear_thread_connection(self) -> None:
+        self.connections.clear_thread_connection()
+
+    def exception_handler(self, sql: str) -> ContextManager[str]:
+        raise NotImplementedError()
+
+    def set_connection_name(self, name: Optional[str] = None) -> Connection:
+        return self.connections.set_connection_name(name)
+
+    def cancel_open(self) -> Optional[List[str]]:
+        raise NotImplementedError()
+
+    @classmethod
+    def open(cls, connection: Connection) -> Connection:
+        raise NotImplementedError()
+
+    def release(self) -> None:
+        raise NotImplementedError()
+
+    def cleanup_all(self) -> None:
+        raise NotImplementedError()
+
+    def begin(self) -> None:
+        raise NotImplementedError()
+
+    def commit(self) -> None:
+        raise NotImplementedError()
+
+    @classmethod
+    def close(cls, connection: Connection) -> Connection:
+        raise NotImplementedError()
+
+    # AdapterProtocol impl end
 
     @classmethod
     def date_function(cls):
@@ -511,7 +511,9 @@ class DecodableAdapter(BaseAdapter):
             client.create_stream(relation.render(), schema, watermark)
             self.logger.debug(f"Stream '{relation}' successfully created!")
         else:
-            raise MissingRelationError(f"Error creating the {relation} stream: stream already exists!")
+            raise MissingRelationError(
+                f"Error creating the {relation} stream: stream already exists!"
+            )
 
         # Both stream and source should exist now, so we can create the pipeline
         pipeline = client.create_pipeline(
@@ -598,7 +600,9 @@ class DecodableAdapter(BaseAdapter):
 
         conn_id = client.get_connection_id(connection.render())
         if not conn_id:
-            raise MissingRelationError(f"Unable to reactivate connection: '{connection}' does not exist")
+            raise MissingRelationError(
+                f"Unable to reactivate connection: '{connection}' does not exist"
+            )
 
         client.activate_connection(conn_id)
 
