@@ -15,22 +15,18 @@
 #
 
 from dataclasses import dataclass
-from typing import Any, ContextManager, Dict, Hashable, List, Optional, Set, Type
+from typing import Any, Dict, Hashable, List, Optional, Set, Type, ContextManager
 
 from agate.table import Table as AgateTable
 from dbt.adapters.base import BaseAdapter, BaseRelation, Column
 from dbt.adapters.base.meta import available
+from dbt.adapters.contracts.relation import RelationType
+from dbt.adapters.events.logging import AdapterLogger
 from dbt.adapters.protocol import AdapterConfig
-from dbt.contracts.connection import Connection
-from dbt.contracts.graph.manifest import Manifest
-from dbt.contracts.graph.parsed import ParsedNode
-from dbt.contracts.relation import RelationType
-from dbt.events import AdapterLogger
-from dbt.exceptions import (
-    NotImplementedException,
-    raise_compiler_error,
-    raise_database_error,
-    raise_parsing_error,
+from dbt.contracts.graph.nodes import ParsedNode
+from dbt.exceptions import CompilationError, MissingRelationError, ParsingError
+from dbt.adapters.contracts.connection import (
+    Connection,
 )
 
 from dbt.adapters.decodable.connections import (
@@ -38,7 +34,8 @@ from dbt.adapters.decodable.connections import (
     DecodableAdapterCredentials,
 )
 from dbt.adapters.decodable.handler import DecodableHandler
-from dbt.adapters.decodable.relation import DecodableRelation
+
+# from dbt.adapters.decodable.relation import DecodableRelation
 from decodable.client.client import (
     DecodableControlPlaneApiClient,
     SchemaField,
@@ -66,7 +63,19 @@ class DecodableAdapter(BaseAdapter):
     Controls actual implmentation of adapter, and ability to override certain methods.
     """
 
-    Relation: Type[DecodableRelation] = DecodableRelation
+    # FIXME: Temporarily commented out while we debug frozen dataclass issue.
+    #
+    # For some reason the base class is calling cls.from_dict(kwargs) in create() on our
+    # implementation of Relation. This fails with an AttributeError because Relation is
+    # marked as a frozen dataclass (see @dataclass def) which is required because BaseRelation
+    # is also frozen. This means the base class is trying to mutate something it knows must be
+    # immutable which makes no sense. There is a deeper issue here that needs to be worked out.
+    # That said, it's not clear we require a custom implementation of BaseRelation. I've temporarily
+    # updated many of the methods that were referencing Relation to use BaseRelation instead since
+    # they didn't appear to touch any specific members of Relation. It's all very strange.
+    #
+    # Relation: Type[DecodableRelation] = DecodableRelation
+
     AdapterSpecificConfigs: Type[AdapterConfig] = DecodableConfig
     ConnectionManager = DecodableAdapterConnectionManager
 
@@ -75,7 +84,7 @@ class DecodableAdapter(BaseAdapter):
 
     # AdapterProtocol impl
 
-    def set_query_header(self, manifest: Manifest) -> None:
+    def set_query_header(self, query_header_context: Dict[str, Any]) -> None:
         raise NotImplementedError()
 
     @staticmethod
@@ -94,7 +103,7 @@ class DecodableAdapter(BaseAdapter):
     def clear_thread_connection(self) -> None:
         self.connections.clear_thread_connection()
 
-    def exception_handler(self, sql: str) -> ContextManager[Any]:
+    def exception_handler(self, sql: str) -> ContextManager[str]:
         raise NotImplementedError()
 
     def set_connection_name(self, name: Optional[str] = None) -> Connection:
@@ -188,7 +197,7 @@ class DecodableAdapter(BaseAdapter):
         self.cache_dropped(relation)
 
         if relation.type is None:
-            raise_compiler_error(f"Tried to drop relation {relation}, but its type is null.")
+            raise CompilationError(f"Tried to drop relation {relation}, but its type is null.")
 
         if relation.identifier is None:
             return
@@ -245,14 +254,14 @@ class DecodableAdapter(BaseAdapter):
     def truncate_relation(self, relation: BaseRelation) -> None:
         """Truncate the given relation."""
         if not relation.identifier:
-            raise_compiler_error("Cannot truncate an unnamed relation")
+            raise CompilationError("Cannot truncate an unnamed relation")
 
         control_plane_client = self._control_plane_client()
         data_plane_client = self._data_plane_client()
         stream_id = control_plane_client.get_stream_id(relation.render())
 
         if not stream_id:
-            raise_database_error(
+            raise MissingRelationError(
                 f"Error clearing stream `{relation.render()}`: stream doesn't exist"
             )
 
@@ -269,15 +278,15 @@ class DecodableAdapter(BaseAdapter):
         self.cache_renamed(from_relation, to_relation)
 
         if not from_relation.identifier:
-            raise_compiler_error("Cannot rename an unnamed relation")
+            raise CompilationError("Cannot rename an unnamed relation")
 
         stream_id = client.get_stream_id(from_relation.render())
 
         if not stream_id:
-            raise_database_error(f"Cannot rename '{from_relation}': stream does not exist")
+            raise MissingRelationError(f"Cannot rename '{from_relation}': stream does not exist")
 
         if not to_relation.identifier:
-            raise_compiler_error(f"Cannot rename relation {from_relation} to nothing")
+            raise CompilationError(f"Cannot rename relation {from_relation} to nothing")
 
         client.update_stream(stream_id=stream_id, props={"name": to_relation.render()})
         self.logger.debug(f"Renamed stream '{from_relation}' to '{to_relation}'")
@@ -285,13 +294,13 @@ class DecodableAdapter(BaseAdapter):
         pipeline_id = client.get_pipeline_id(from_relation.render())
 
         if not pipeline_id:
-            raise_database_error(
+            raise MissingRelationError(
                 f"Cannot rename '{from_relation.render()}': pipeline does not exist"
             )
 
         pipe_info = client.get_pipeline_information(pipeline_id)
         if not pipe_info["sql"]:
-            raise_database_error(
+            raise MissingRelationError(
                 f"Cannot rename relation '{from_relation}': pipeline returned no sql"
             )
         sql: str = pipe_info["sql"]
@@ -344,9 +353,10 @@ class DecodableAdapter(BaseAdapter):
         :param self.Relation current: A relation that currently exists in the
             database with columns of unspecified types.
         """
-        raise NotImplementedException(
-            "`expand_target_column_types` is not implemented for this adapter!"
-        )
+        pass
+        # raise NotImplementedException(
+        #     "`expand_target_column_types` is not implemented for this adapter!"
+        # )
 
     def list_relations_without_caching(self, schema_relation: BaseRelation) -> List[BaseRelation]:
         relations: List[BaseRelation] = []
@@ -406,7 +416,7 @@ class DecodableAdapter(BaseAdapter):
             if primary_key:
                 self._set_primary_key(primary_key, schema)
         except Exception as err:
-            raise_compiler_error(f"Error checking changes to the '{relation}' stream: {err}")
+            raise CompilationError(f"Error checking changes to the '{relation}' stream: {err}")
 
         pipe_id = client.get_pipeline_id(relation.render())
         if not pipe_id:
@@ -429,7 +439,7 @@ class DecodableAdapter(BaseAdapter):
         try:
             existing_schema = self._schema_from_json(existing_schema_fields)
         except Exception as err:
-            raise_compiler_error(f"Error checking changes to the '{relation}' stream: {err}")
+            raise CompilationError(f"Error checking changes to the '{relation}' stream: {err}")
 
         if existing_schema != schema:
             return True
@@ -447,7 +457,7 @@ class DecodableAdapter(BaseAdapter):
         primary_key: Optional[str] = None,
     ) -> None:
         if not relation.identifier:
-            raise_compiler_error("Cannot create an unnamed relation")
+            raise CompilationError("Cannot create an unnamed relation")
 
         self.logger.debug(f"Creating table {relation}")
 
@@ -467,7 +477,7 @@ class DecodableAdapter(BaseAdapter):
         )["schema"]
 
         if not fields:
-            raise_database_error(
+            raise MissingRelationError(
                 f"Error creating the {relation} stream: empty schema returned for sql:\n{sql}"
             )
 
@@ -475,7 +485,7 @@ class DecodableAdapter(BaseAdapter):
         try:
             schema = self._schema_from_json(fields)
         except Exception as err:
-            raise_compiler_error(f"Error creating the {relation} stream: {err}")
+            raise CompilationError(f"Error creating the {relation} stream: {err}")
 
         schema_hints: Set[SchemaField]
         try:
@@ -484,7 +494,7 @@ class DecodableAdapter(BaseAdapter):
             else:
                 schema_hints = set()
         except Exception as err:
-            raise_parsing_error(f"Error creating the {relation} stream: {err}")
+            raise ParsingError(f"Error creating the {relation} stream: {err}")
 
         if not schema_hints.issubset(schema):
             self.logger.warning(
@@ -501,7 +511,9 @@ class DecodableAdapter(BaseAdapter):
             client.create_stream(relation.render(), schema, watermark)
             self.logger.debug(f"Stream '{relation}' successfully created!")
         else:
-            raise_database_error(f"Error creating the {relation} stream: stream already exists!")
+            raise MissingRelationError(
+                f"Error creating the {relation} stream: stream already exists!"
+            )
 
         # Both stream and source should exist now, so we can create the pipeline
         pipeline = client.create_pipeline(
@@ -522,7 +534,7 @@ class DecodableAdapter(BaseAdapter):
         for ix, col_name in enumerate(column_names):
             type: Optional[str] = self.convert_type(agate_table, ix)
             if not type:
-                raise_compiler_error(
+                raise CompilationError(
                     f"Couldn't infer type for column `{col_name}` in seed `{table_name}`"
                 )
 
@@ -539,7 +551,7 @@ class DecodableAdapter(BaseAdapter):
                     field_type = override_field_type
 
             if not field_type:
-                raise_compiler_error(
+                raise CompilationError(
                     f"Inferred type `{type}` for column `{col_name}` doesn't match any of Decodable's known types"
                 )
 
@@ -562,7 +574,7 @@ class DecodableAdapter(BaseAdapter):
 
         conn_id = client.get_connection_id(seed_name)
         if not conn_id:
-            raise_database_error(
+            raise MissingRelationError(
                 f"Trying to send seed events to a non-existing connection `{seed_name}`"
             )
 
@@ -583,27 +595,29 @@ class DecodableAdapter(BaseAdapter):
         client.deactivate_connection(conn_id)
 
     @available
-    def reactivate_connection(self, connection: Relation):
+    def reactivate_connection(self, connection: BaseRelation):
         client = self._control_plane_client()
 
         conn_id = client.get_connection_id(connection.render())
         if not conn_id:
-            raise_database_error(f"Unable to reactivate connection: '{connection}' does not exist")
+            raise MissingRelationError(
+                f"Unable to reactivate connection: '{connection}' does not exist"
+            )
 
         client.activate_connection(conn_id)
 
     @available
-    def stop_pipeline(self, pipe: Relation):
+    def stop_pipeline(self, pipe: BaseRelation):
         client = self._control_plane_client()
 
         pipe_id = client.get_pipeline_id(pipe.render())
         if not pipe_id:
-            raise_database_error(f"Unable to deactivate pipeline: '{pipe}' does not exist")
+            raise MissingRelationError(f"Unable to deactivate pipeline: '{pipe}' does not exist")
 
         client.deactivate_pipeline(pipe_id)
 
     @available
-    def delete_pipeline(self, pipe: Relation):
+    def delete_pipeline(self, pipe: BaseRelation):
         client = self._control_plane_client()
 
         pipeline_id = client.get_pipeline_id(pipe.render())
@@ -614,12 +628,12 @@ class DecodableAdapter(BaseAdapter):
             client.delete_pipeline(pipeline_id)
 
     @available
-    def delete_stream(self, stream: Relation, skip_errors: bool = False):
+    def delete_stream(self, stream: BaseRelation, skip_errors: bool = False):
         client = self._control_plane_client()
 
         stream_id = client.get_stream_id(stream.render())
         if not stream_id:
-            raise_database_error(f"Unable to delete stream: `{stream}` does not exist")
+            raise MissingRelationError(f"Unable to delete stream: `{stream}` does not exist")
 
         try:
             client.delete_stream(stream_id)
@@ -627,15 +641,15 @@ class DecodableAdapter(BaseAdapter):
             if skip_errors:
                 self.logger.warning(f"Deleting stream `{stream}` failed: {e}")
             else:
-                raise_database_error(f"Deleting stream `{stream}` failed: {e}")
+                raise MissingRelationError(f"Deleting stream `{stream}` failed: {e}")
 
     @available
-    def delete_connection(self, conn: Relation):
+    def delete_connection(self, conn: BaseRelation):
         client = self._control_plane_client()
 
         conn_id = client.get_connection_id(conn.render())
         if not conn_id:
-            raise_database_error(f"Unable to delete connection: `{conn}` does not exist")
+            raise MissingRelationError(f"Unable to delete connection: `{conn}` does not exist")
 
         client.deactivate_connection(conn_id)
         client.delete_connection(conn_id)
@@ -648,20 +662,20 @@ class DecodableAdapter(BaseAdapter):
     def should_materialize_tests(self) -> bool:
         credentials: Optional[
             DecodableAdapterCredentials
-        ] = self.get_thread_connection().credentials
+        ] = self.connections.get_thread_connection().credentials
         if not credentials:
             return False
         return credentials.materialize_tests
 
     def _control_plane_client(self) -> DecodableControlPlaneApiClient:
         handle: DecodableHandler = (
-            self.get_thread_connection().handle
+            self.connections.get_thread_connection().handle
         )  # pyright: ignore [reportGeneralTypeIssues]
         return handle.control_plane_client
 
     def _data_plane_client(self) -> DecodableDataPlaneApiClient:
         handle: DecodableHandler = (
-            self.get_thread_connection().handle
+            self.connections.get_thread_connection().handle
         )  # pyright: ignore [reportGeneralTypeIssues]
         return handle.data_plane_client
 
@@ -677,7 +691,7 @@ class DecodableAdapter(BaseAdapter):
 
             t = FieldType.from_str(data_type)
             if not t:
-                raise_compiler_error(f"Type '{data_type}' not recognized")
+                raise CompilationError(f"Type '{data_type}' not recognized")
 
             schema.add(SchemaField(name=name, type=t))
 
@@ -733,7 +747,7 @@ class DecodableAdapter(BaseAdapter):
         for field in json:
             t = FieldType.from_str(field["type"])
             if not t:
-                raise_compiler_error(f"Type '{field['type']}' not recognized")
+                raise CompilationError(f"Type '{field['type']}' not recognized")
             schema.append(SchemaField(name=field["name"], type=t))
         return schema
 

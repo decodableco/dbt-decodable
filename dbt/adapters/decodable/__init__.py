@@ -17,11 +17,11 @@ from dbt.adapters.decodable.connections import DecodableAdapterCredentials
 from dbt.adapters.decodable.impl import DecodableAdapter
 
 from dbt.adapters.base import AdapterPlugin
-import dbt.include.decodable as decodable
+import dbt.include.decodable as decodable  # pyright: ignore[reportMissingTypeStubs]
 
 
 Plugin = AdapterPlugin(
-    adapter=DecodableAdapter,
+    adapter=DecodableAdapter,  # type: ignore
     credentials=DecodableAdapterCredentials,
     include_path=decodable.PACKAGE_PATH,
 )
