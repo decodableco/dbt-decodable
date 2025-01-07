@@ -641,7 +641,7 @@ files = [
 ]
 
 [package.dependencies]
-dbt-adapters >= "1.13.0"
+dbt-adapters ">=1.13.0"
 dbt-core = ">=1.9.1"
 freezegun = "*"
 pyyaml = "*"
