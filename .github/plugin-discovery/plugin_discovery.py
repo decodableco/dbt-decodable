@@ -4,7 +4,7 @@ import sys
 
 
 def main():
-    out = subprocess.run(["dbt", "--version"],  capture_output=True, text=True)
+    out = subprocess.run(["dbt", "--version"], capture_output=True, text=True)
     print(out.stdout)
     plugin_detected = (
         re.search(r"Plugins:\s.*- decodable: \d+\.\d+\.\d+", out.stdout, flags=re.DOTALL)
