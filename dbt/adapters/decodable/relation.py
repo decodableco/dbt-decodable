@@ -14,7 +14,8 @@
 #  limitations under the License.
 #
 from dataclasses import dataclass
-from typing import Dict, Optional
+
+# from typing import Dict
 
 from dbt.adapters.base import BaseRelation
 from dbt.adapters.contracts.relation import Policy
@@ -41,22 +42,22 @@ class DecodableRelation(BaseRelation):
     dbt_created: bool = True
     # default_quote_policy: Policy = DecodableQuotePolicy()
 
-    @property
-    def quote_character(self) -> str:
-        return '"'
+    # @property
+    # def quote_character(self) -> str:
+    #     return '"'
 
-    @property
-    def quote_policy(self) -> Dict[str, bool]:
-        return {
-            'schema': False,
-            'database': False,
-            'identifier': True,
-        }
+    # @property
+    # def quote_policy(self) -> Dict[str, bool]:
+    #     return {
+    #         "schema": False,
+    #         "database": False,
+    #         "identifier": True,
+    #     }
 
-    @property
-    def include_policy(self) -> Dict[str, bool]:
-        return {
-            'schema': False,
-            'database': False,
-            'identifier': True,
-        }
+    # @property
+    # def include_policy(self) -> Dict[str, bool]:
+    #     return {
+    #         "schema": False,
+    #         "database": False,
+    #         "identifier": True,
+    #     }
