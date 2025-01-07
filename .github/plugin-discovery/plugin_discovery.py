@@ -12,7 +12,7 @@ def main():
     )
     if not plugin_detected:
         sys.exit(
-            f"Decodable plugin not recognized by dbt! Received output of `dbt --version`:\n{out.stderr}"
+            f"Decodable plugin not recognized by dbt! Received output of `dbt --version`:\n{out.stdout}"
         )
 
 
