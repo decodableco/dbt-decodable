@@ -1,6 +1,6 @@
 {{ config(primary_key=["method"]) }}
 
-SELECT CAST(envoy['method'] AS STRING)       AS `method`,
+SELECT coalesce(CAST(envoy['method'] AS STRING), '__UNKNOWN__')  AS `method`,
        SUM(CAST(envoy['bytes_sent'] AS INT)) AS `total_bytes_sent`
 FROM (
          -- Match and parse Envoy records in the value field of the envoy_raw stream.
