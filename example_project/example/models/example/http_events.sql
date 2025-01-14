@@ -1,6 +1,14 @@
 /* Example following the quickstart guide at https://docs.decodable.co/docs/quickstart-guide */
-
-{{ config(watermark="`timestamp` AS `timestamp` - INTERVAL '0.001' SECOND") }}
+{{
+    config(
+        watermarks=[
+            {
+                "name": "timestamp",
+                "expression": "`timestamp` - INTERVAL '0.001' SECOND"
+            }
+        ]
+    )
+}}
 
 SELECT
   TO_TIMESTAMP(CAST(envoy['timestamp'] AS STRING), 'yyyy-MM-dd''T''HH:mm:ss''Z''') AS `timestamp`,
