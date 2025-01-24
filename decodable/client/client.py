@@ -15,13 +15,17 @@
 #
 from __future__ import annotations
 
+from dbt.events import AdapterLogger
+
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, List
+
+from yaml import dump_all, full_load_all
 
 import requests
 from typing_extensions import override
 
-from decodable.client.api import Connector, ConnectionType, StartPosition
+from decodable.client.api import Connector, ConnectionType, StartPositionSpec, StartPosition, StreamStartPositions, StartPositionTag
 from decodable.config.client_config import (
     DecodableControlPlaneClientConfig,
     DecodableDataPlaneClientConfig,
@@ -223,6 +227,8 @@ class DecodableDataPlaneApiClient:
 
 
 class DecodableControlPlaneApiClient:
+    logger = AdapterLogger("Decodable")
+
     config: DecodableControlPlaneClientConfig
 
     _schema_v2_request_params: dict[str, str] = {"response_schema_v": "v2"}
@@ -360,9 +366,9 @@ class DecodableControlPlaneApiClient:
             endpoint_url=f"{self.config.decodable_api_url()}/pipelines/{pipeline_id}",
         ).json()
 
-    def activate_pipeline(self, pipeline_id: str) -> Dict[str, Any]:
+    def activate_pipeline(self, pipeline_id: str, start_positions: StreamStartPositions = dict()) -> Dict[str, Any]:
         return self._post_api_request(
-            payload={},
+            payload={'start_positions': start_positions},
             endpoint_url=f"{self.config.decodable_api_url()}/pipelines/{pipeline_id}/activate",
         ).json()
 
@@ -380,7 +386,7 @@ class DecodableControlPlaneApiClient:
     def get_preview_tokens(
         self,
         sql: str,
-        preview_start: StartPosition = StartPosition.LATEST,
+        preview_start: StartPositionTag = StartPositionTag.LATEST,
         input_streams: Optional[List[str]] = None,
     ) -> PreviewTokensResponse:
         if input_streams is None:
@@ -395,6 +401,11 @@ class DecodableControlPlaneApiClient:
             payload=payload, endpoint_url=f"{self.config.decodable_api_url()}/preview/tokens"
         )
         return PreviewTokensResponse.from_dict(response.json())
+
+    def get_pipeline_dependencies(self, pipeline_id: str) -> Dict[str, Any]:
+        return self._get_api_request(
+            endpoint_url=f"{self.config.decodable_api_url()}/pipelines/{pipeline_id}/dependencies"
+        ).json()
 
     def get_preview_dependencies(self, sql: str) -> Dict[str, Any]:
         payload = {"sql": sql}
@@ -480,11 +491,29 @@ class DecodableControlPlaneApiClient:
 
         return AccountInfoResponse.from_dict(response.json())
 
+    def apply(self, resources):
+        payload = dump_all(resources)
+
+        response = requests.post(
+            url=f"{self.config.decodable_api_url()}/apply",
+            data=payload,
+            headers={
+                "accept": "application/x-yaml",
+                "content-type": "application/x-yaml",
+                "authorization": f"Bearer {self.config.access_token}",
+            },
+        )
+
+        if response.ok:
+            return full_load_all(response.content)
+        else:
+            raise_api_exception(response.status_code, response.json())
+
     def _parse_response(self, result: Any) -> ApiResponse:
         return ApiResponse(items=result["items"], next_page_token=result["next_page_token"])
 
     def _post_api_request(
-        self, payload: Any, endpoint_url: str, params: dict[str, str] | None = None
+            self, payload: Any, endpoint_url: str, params: dict[str, str] | None = None,
     ) -> requests.Response:
         response = requests.post(
             url=endpoint_url,

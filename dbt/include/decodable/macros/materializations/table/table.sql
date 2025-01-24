@@ -28,9 +28,8 @@
 
   {% set should_create = {'value': false} %}
   {% if existing_relation is not none %}
-    {% set watermarks = config.get('watermarks', []) %}
-    {% set primary_key = config.get('primary_key', []) %}
-    {% if adapter.has_changed(sql, target_relation, watermarks, primary_key) or should_full_refresh() %}
+    {% set output_stream = config.get('output_stream', {}) %}
+    {% if adapter.has_changed(sql, target_relation, output_stream) or should_full_refresh() %}
       {{ adapter.drop_relation(existing_relation) }}
       {% do should_create.update({'value': true}) %}
     {% endif %}

@@ -120,16 +120,15 @@ class SchemaV2:
     def from_json_components(
         cls,
         fields: List[Dict[str, str]],
-        watermarks: List[Dict[str, str]],
-        primary_key: List[str],
+        output_stream: Dict[str, Any],
     ) -> "SchemaV2":
         return SchemaV2(
             fields=[schema_field_factory(field) for field in fields],
             watermarks=[
                 Watermark(name=w_json["name"], expression=w_json["expression"])
-                for w_json in watermarks
+                for w_json in output_stream.get('schema_v2', {}).get('watermarks', [])
             ],
-            constraints=Constraints(primary_key=primary_key),
+            constraints=Constraints(primary_key=output_stream.get('schema_v2', {}).get('constaints', {}).get('primary_key')),
         )
 
     @classmethod
@@ -137,8 +136,7 @@ class SchemaV2:
         primary_key: List[str] = json.get("constraints", {}).get("primary_key", [])
         return cls.from_json_components(
             json["fields"],
-            json.get("watermarks", []),
-            primary_key,
+            json
         )
 
     def to_dict(self) -> Dict[str, Any]:
