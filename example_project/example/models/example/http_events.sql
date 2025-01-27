@@ -1,12 +1,21 @@
 /* Example following the quickstart guide at https://docs.decodable.co/docs/quickstart-guide */
 {{
     config(
-        watermarks=[
-            {
-                "name": "timestamp",
-                "expression": "`timestamp` - INTERVAL '0.001' SECOND"
+        output_stream={
+            "schema_v2": {
+                "watermarks": [
+                    {
+                        "name": "timestamp",
+                        "expression": "`timestamp` - INTERVAL '0.001' SECOND"
+                    }
+                ],
             }
-        ]
+        },
+        pipeline={
+            "execution": {
+                "initial_start_positions": { "envoy_raw": "earliest" }
+            }
+        }
     )
 }}
 

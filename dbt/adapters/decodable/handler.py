@@ -19,7 +19,7 @@ from typing import Any, Dict, Iterator, List, Optional, Sequence, Tuple
 
 from dbt.events import AdapterLogger
 
-from decodable.client.api import StartPosition
+from decodable.client.api import StartPositionTag
 from decodable.client.client import DecodableControlPlaneApiClient, DecodableDataPlaneApiClient
 
 
@@ -46,7 +46,7 @@ class DecodableCursor:
         self,
         control_plane_client: DecodableControlPlaneApiClient,
         data_plane_client: DecodableDataPlaneApiClient,
-        preview_start: StartPosition,
+        preview_start: StartPositionTag,
         timeout: float,
     ):
         self.logger.debug(
@@ -130,7 +130,7 @@ class DecodableHandler:
         self,
         control_plane_client: DecodableControlPlaneApiClient,
         data_plane_client: DecodableDataPlaneApiClient,
-        preview_start: StartPosition,
+        preview_start: StartPositionTag,
         timeout: float,
     ):
         self.control_plane_client = control_plane_client

@@ -28,7 +28,7 @@ from dbt.events import AdapterLogger
 from dbt.exceptions import RuntimeException
 
 from dbt.adapters.decodable.handler import DecodableCursor, DecodableHandler
-from decodable.client.api import StartPosition
+from decodable.client.api import StartPositionTag
 from decodable.client.client_factory import DecodableClientFactory
 
 
@@ -42,7 +42,7 @@ class DecodableAdapterCredentials(Credentials):
     profile_name: str
     account_name: str
     materialize_tests: bool = False
-    preview_start: StartPosition = StartPosition.EARLIEST
+    preview_start: StartPositionTag = StartPositionTag.EARLIEST
     request_timeout_ms: int = 60000
     local_namespace: Optional[str] = None
 

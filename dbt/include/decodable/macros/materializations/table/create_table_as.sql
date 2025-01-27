@@ -15,7 +15,7 @@
  */
 
 {% macro decodable__create_table_as(temporary, relation, sql) -%}
-  {% set watermarks = config.get('watermarks', []) %}
-  {% set primary_key = config.get('primary_key', []) %}
-  {% do adapter.create_table(sql, temporary, relation, graph.nodes, watermarks, primary_key) %}
+  {% set output_stream = config.get('output_stream', {}) %}
+  {% set pipeline = config.get('pipeline', {}) %}
+  {% do adapter.create_table(sql, temporary, relation, graph.nodes, pipeline, output_stream) %}
 {%- endmacro %}
