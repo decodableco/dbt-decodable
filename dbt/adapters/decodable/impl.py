@@ -393,7 +393,7 @@ class DecodableAdapter(BaseAdapter):
         output_stream: Dict[str, Any],
     ) -> bool:
         client = self._control_plane_client()
-        for resource_result in client.apply(self.generate_declarative_yaml(sql, relation, pipeline, output_stream)):
+        for resource_result in client.apply(self.generate_declarative_yaml(sql, relation, pipeline, output_stream), dry_run=True):
             if resource_result.get('result', 'unknown') != 'unchanged':
                 return True
         return False
