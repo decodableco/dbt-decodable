@@ -30,7 +30,6 @@ from dbt.exceptions import (
     NotImplementedException,
     raise_compiler_error,
     raise_database_error,
-    raise_parsing_error,
 )
 
 from dbt.adapters.decodable.connections import (
@@ -418,7 +417,6 @@ class DecodableAdapter(BaseAdapter):
             return True
 
         schema_changed = SchemaV2.from_json(output_stream["schema_v2"]) != SchemaV2.from_json(stream_info["schema_v2"])
-        print("Schema changed? %s" % (schema_changed))
         if schema_changed:
             print(output_stream["schema_v2"])
             print(stream_info["schema_v2"])
@@ -472,7 +470,7 @@ class DecodableAdapter(BaseAdapter):
 
         pipeline['sql'] = self._wrap_as_pipeline(relation.render(), sql)
         pipeline.setdefault('execution', {})
-        pipeline['execution']['active'] = True
+        pipeline['execution'].setdefault('active', True)
 
         client.apply([
             {

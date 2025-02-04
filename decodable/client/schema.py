@@ -19,7 +19,7 @@ import json
 
 from dataclasses import dataclass, asdict, field as dataclass_field, fields as dataclass_fields
 from decodable.client.types import FieldType
-from typing import Any, Sequence, List, Dict
+from typing import Any, Sequence, List, Dict, Union, Literal
 
 from dbt.exceptions import raise_compiler_error
 
@@ -117,27 +117,14 @@ class SchemaV2:
     constraints: Constraints
 
     @classmethod
-    def from_json_components(
-        cls,
-        fields: List[Dict[str, str]],
-        output_stream: Dict[str, Any],
-    ) -> "SchemaV2":
+    def from_json(cls, json: Dict[str, Any]) -> "SchemaV2":
         return SchemaV2(
-            fields=[schema_field_factory(field) for field in fields],
+            fields=[schema_field_factory(field) for field in json.get('fields', [])],
             watermarks=[
                 Watermark(name=w_json["name"], expression=w_json["expression"])
-                for w_json in output_stream.get('schema_v2', {}).get('watermarks', [])
+                for w_json in json.get('watermarks', [])
             ],
-            constraints=Constraints(primary_key=output_stream.get('schema_v2', {}).get('constaints', {}).get('primary_key')),
-        )
-
-    @classmethod
-    def from_json(cls, json: Dict[str, Any]) -> "SchemaV2":
-        primary_key: List[str] = json.get("constraints", {}).get("primary_key", [])
-        return cls.from_json_components(
-            json["fields"],
-            json
-        )
+            constraints=Constraints(primary_key=json.get('constraints', {}).get('primary_key')))
 
     def to_dict(self) -> Dict[str, Any]:
         return {

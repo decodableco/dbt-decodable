@@ -277,6 +277,7 @@ class DecodableControlPlaneApiClient:
             return response.json()
         else:
             raise_api_exception(response.status_code, response.json())
+            assert False, "unreachable"
 
     def get_stream_from_sql(self, sql: str) -> Dict[str, Any]:
         return self._post_api_request(
@@ -342,6 +343,7 @@ class DecodableControlPlaneApiClient:
             return response.json()
         else:
             raise_api_exception(response.status_code, response.json())
+            assert False, "unreachable"
 
     def get_associated_streams(self, pipeline_id: str) -> ApiResponse:
         response = self._get_api_request(
