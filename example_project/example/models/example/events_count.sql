@@ -17,7 +17,7 @@
 }}
 select
     coalesce(resource_type, '__UNKNOWN__') as resource_type,
-    coalesce(audit_event_type, '__UNKNOWN__') as audit_event_type, --changed
+    coalesce(audit_event_type, '__UNKNOWN__') as audit_event_type,
     count(1) as count_observed,
     min(to_timestamp_ltz(`timestamp`, 3)) as min_timestamp,
     max(to_timestamp_ltz(`timestamp`, 3)) as max_timestamp

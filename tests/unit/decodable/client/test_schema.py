@@ -85,9 +85,9 @@ class TestComputedSchemaField(unittest.TestCase):
 class TestSchemaV2(unittest.TestCase):
     def test_from_json(self):
         json_data = {
-                "fields": [{"name": "field1", "kind": "physical", "type": "STRING"}],
-                "watermarks": [{"name": "wm1", "expression": "expr1"}],
-                "constraints": {"primary_key": ["field1"]},
+            "fields": [{"name": "field1", "kind": "physical", "type": "STRING"}],
+            "watermarks": [{"name": "wm1", "expression": "expr1"}],
+            "constraints": {"primary_key": ["field1"]},
         }
         schema = SchemaV2.from_json(json_data)
         self.assertEqual(len(schema.fields), 1)

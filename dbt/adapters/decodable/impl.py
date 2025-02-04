@@ -62,9 +62,6 @@ from decodable.client.schema import SchemaV2, SchemaField, PhysicalSchemaField, 
 class DecodableConfig(AdapterConfig):
     output_stream: Dict[str, Any] = dataclass_field(default_factory=dict)
     pipeline: Dict[str, Any] = dataclass_field(default_factory=dict)
-    # watermarks: List[Dict[str, str]] = dataclass_field(default_factory=list)
-    # primary_key: List[str] = dataclass_field(default_factory=list)
-    # start_positions: Dict[str, Dict[str, str]] = dataclass_field(default_factory=dict)
 
 
 class DecodableAdapter(BaseAdapter):
