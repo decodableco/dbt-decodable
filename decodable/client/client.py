@@ -493,11 +493,11 @@ class DecodableControlPlaneApiClient:
 
         return AccountInfoResponse.from_dict(response.json())
 
-    def apply(self, resources):
+    def apply(self, resources, dry_run=False):
         payload = dump_all(resources)
 
         response = requests.post(
-            url=f"{self.config.decodable_api_url()}/apply",
+            url=f"{self.config.decodable_api_url()}/apply?dry_run={str(dry_run).lower()}",
             data=payload,
             headers={
                 "accept": "application/x-yaml",

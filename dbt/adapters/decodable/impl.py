@@ -395,50 +395,15 @@ class DecodableAdapter(BaseAdapter):
         self,
         sql: str,
         relation: BaseRelation,
+        pipeline: Dict[str, Any],
         output_stream: Dict[str, Any],
     ) -> bool:
         client = self._control_plane_client()
+        for resource_result in client.apply(self.generate_declarative_yaml(sql, relation, pipeline, output_stream)):
+            if resource_result.get('result', 'unknown') != 'unchanged':
+                return True
+        return False
 
-        new_pipe_sql = self._wrap_as_pipeline(relation.render(), sql)
-
-        self.populate_output_stream_spec(relation, sql, output_stream)
-
-        pipe_id = client.get_pipeline_id(relation.render())
-        if not pipe_id:
-            return True
-        pipe_info = client.get_pipeline_information(pipe_id)
-
-        stream_id = client.get_stream_id(relation.render())
-        if not stream_id:
-            return True
-        stream_info = client.get_stream_information(stream_id)
-
-        if pipe_info["sql"] != new_pipe_sql:
-            return True
-
-        schema_changed = SchemaV2.from_json(output_stream["schema_v2"]) != SchemaV2.from_json(stream_info["schema_v2"])
-        if schema_changed:
-            print(output_stream["schema_v2"])
-            print(stream_info["schema_v2"])
-        return schema_changed
-
-    def populate_output_stream_spec(self, relation: BaseRelation, sql: str, stream_spec: Dict[str, Any]):
-        client = self._control_plane_client()
-        stream_spec.setdefault('schema_v2', {})
-        stream_spec['schema_v2'].setdefault('fields', [])
-        stream_spec['schema_v2'].setdefault('constraints', {})
-        stream_spec['schema_v2'].setdefault('watermarks', [])
-        if len(stream_spec['schema_v2']['fields']) == 0:
-            fields: List[Dict[str, str]] = client.get_stream_from_sql(
-                self._wrap_as_pipeline(relation.render(), sql)
-            )["schema_v2"]["fields"]
-
-            if not fields:
-                raise_database_error(
-                    f"Error creating the {relation} stream: empty schema returned for sql:\n{sql}"
-                )
-
-            stream_spec['schema_v2']['fields'] = fields
 
     @available
     def create_table(
@@ -466,13 +431,25 @@ class DecodableAdapter(BaseAdapter):
 
         client = self._control_plane_client()
 
+        client.apply(self.generate_declarative_yaml(sql, relation, pipeline, output_stream))
+
+        self.logger.debug(f"Pipeline '{relation}' successfully created!")
+
+    @available
+    def generate_declarative_yaml(
+        self,
+        sql: str,
+        relation: BaseRelation,
+        pipeline: Dict[str, Any],
+        output_stream: Dict[str, Any],
+    ) -> List[Dict[str, Any]]:
         self.populate_output_stream_spec(relation, sql, output_stream)
 
         pipeline['sql'] = self._wrap_as_pipeline(relation.render(), sql)
         pipeline.setdefault('execution', {})
         pipeline['execution'].setdefault('active', True)
 
-        client.apply([
+        return [
             {
                 'kind': 'stream',
                 'spec_version': 'v1',
@@ -490,9 +467,25 @@ class DecodableAdapter(BaseAdapter):
                 },
                 'spec': pipeline
             }
-        ])
+        ]
 
-        self.logger.debug(f"Pipeline '{relation}' successfully created!")
+    def populate_output_stream_spec(self, relation: BaseRelation, sql: str, stream_spec: Dict[str, Any]):
+        client = self._control_plane_client()
+        stream_spec.setdefault('schema_v2', {})
+        stream_spec['schema_v2'].setdefault('fields', [])
+        stream_spec['schema_v2'].setdefault('constraints', {})
+        stream_spec['schema_v2'].setdefault('watermarks', [])
+        if len(stream_spec['schema_v2']['fields']) == 0:
+            fields: List[Dict[str, str]] = client.get_stream_from_sql(
+                self._wrap_as_pipeline(relation.render(), sql)
+            )["schema_v2"]["fields"]
+
+            if not fields:
+                raise_database_error(
+                    f"Error creating the {relation} stream: empty schema returned for sql:\n{sql}"
+                )
+
+            stream_spec['schema_v2']['fields'] = fields
 
     @available
     def create_seed_table(

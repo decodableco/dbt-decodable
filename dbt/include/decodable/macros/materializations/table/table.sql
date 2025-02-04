@@ -29,7 +29,8 @@
   {% set should_create = {'value': false} %}
   {% if existing_relation is not none %}
     {% set output_stream = config.get('output_stream', {}) %}
-    {% if adapter.has_changed(sql, target_relation, output_stream) or should_full_refresh() %}
+    {% set pipeline = config.get('pipeline', {}) %}
+    {% if adapter.has_changed(sql, target_relation, pipeline, output_stream) or should_full_refresh() %}
       {{ adapter.drop_relation(existing_relation) }}
       {% do should_create.update({'value': true}) %}
     {% endif %}
