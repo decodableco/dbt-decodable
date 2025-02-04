@@ -493,7 +493,7 @@ class DecodableControlPlaneApiClient:
 
         return AccountInfoResponse.from_dict(response.json())
 
-    def apply(self, resources, dry_run=False):
+    def apply(self, resources: List[Dict[str, Any]], dry_run:bool=False):
         payload = dump_all(resources)
 
         response = requests.post(

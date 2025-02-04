@@ -40,7 +40,9 @@ class SchemaField:
         field_type = FieldType.from_str(type_)
         if field_type is None:
             raise_compiler_error(f"Type '{type_}' not recognized")
-        return field_type
+            assert False, "unreachable"
+        else:
+            return field_type
 
     def to_dict(self) -> Dict[str, str]:
         res = {}
@@ -118,13 +120,14 @@ class SchemaV2:
 
     @classmethod
     def from_json(cls, json: Dict[str, Any]) -> "SchemaV2":
+        primary_key: List[str] = json.get('constraints', {}).get('primary_key',[])
         return SchemaV2(
             fields=[schema_field_factory(field) for field in json.get('fields', [])],
             watermarks=[
                 Watermark(name=w_json["name"], expression=w_json["expression"])
                 for w_json in json.get('watermarks', [])
             ],
-            constraints=Constraints(primary_key=json.get('constraints', {}).get('primary_key')))
+            constraints=Constraints(primary_key=primary_key))
 
     def to_dict(self) -> Dict[str, Any]:
         return {
