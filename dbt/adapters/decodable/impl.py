@@ -577,6 +577,7 @@ class DecodableAdapter(BaseAdapter):
             raise_database_error(
                 f"Trying to send seed events to a non-existing connection `{seed_name}`"
             )
+            assert False, "unreachable"
 
         events: List[Dict[str, Any]] = []
         for row in data.rows:
@@ -597,7 +598,7 @@ class DecodableAdapter(BaseAdapter):
         client.deactivate_connection(conn_id)
 
     @available
-    def reactivate_connection(self, connection: Relation):
+    def reactivate_connection(self, connection: BaseRelation):
         client = self._control_plane_client()
 
         conn_id = client.get_connection_id(connection.render())
@@ -605,11 +606,12 @@ class DecodableAdapter(BaseAdapter):
             raise_database_error(
                 f"Unable to reactivate connection: '{connection}' does not exist"
             )
+            assert False, "unreachable"
 
         client.activate_connection(conn_id)
 
     @available
-    def stop_pipeline(self, pipe: Relation):
+    def stop_pipeline(self, pipe: BaseRelation):
         client = self._control_plane_client()
 
         pipe_id = client.get_pipeline_id(pipe.render())
@@ -621,7 +623,7 @@ class DecodableAdapter(BaseAdapter):
         client.deactivate_pipeline(pipe_id)
 
     @available
-    def delete_pipeline(self, pipe: Relation):
+    def delete_pipeline(self, pipe: BaseRelation):
         client = self._control_plane_client()
 
         pipeline_id = client.get_pipeline_id(pipe.render())
@@ -635,12 +637,13 @@ class DecodableAdapter(BaseAdapter):
             client.delete_pipeline(pipeline_id)
 
     @available
-    def delete_stream(self, stream: Relation, skip_errors: bool = False):
+    def delete_stream(self, stream: BaseRelation, skip_errors: bool = False):
         client = self._control_plane_client()
 
         stream_id = client.get_stream_id(stream.render())
         if not stream_id:
             raise_database_error(f"Unable to delete stream: `{stream}` does not exist")
+            assert False, "unreachable"
 
         try:
             client.delete_stream(stream_id)
@@ -651,7 +654,7 @@ class DecodableAdapter(BaseAdapter):
                 raise_database_error(f"Deleting stream `{stream}` failed: {e}")
 
     @available
-    def delete_connection(self, conn: Relation):
+    def delete_connection(self, conn: BaseRelation):
         client = self._control_plane_client()
 
         conn_id = client.get_connection_id(conn.render())
@@ -659,6 +662,7 @@ class DecodableAdapter(BaseAdapter):
             raise_database_error(
                 f"Unable to delete connection: `{conn}` does not exist"
             )
+            assert False, "unreachable"
 
         client.deactivate_connection(conn_id)
         client.delete_connection(conn_id)
