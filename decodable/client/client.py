@@ -25,7 +25,12 @@ from yaml import dump_all, full_load_all
 import requests
 from typing_extensions import override
 
-from decodable.client.api import Connector, ConnectionType, StreamStartPositions, StartPositionTag
+from decodable.client.api import (
+    Connector,
+    ConnectionType,
+    StreamStartPositions,
+    StartPositionTag,
+)
 from decodable.config.client_config import (
     DecodableControlPlaneClientConfig,
     DecodableDataPlaneClientConfig,
@@ -180,7 +185,8 @@ class DecodableDataPlaneApiClient:
 
     def clear_stream(self, stream_id: str, token: str) -> None:
         self._post_api_request(
-            bearer_token=token, endpoint_url=f"{self.config.api_url}/streams/{stream_id}/clear"
+            bearer_token=token,
+            endpoint_url=f"{self.config.api_url}/streams/{stream_id}/clear",
         )
 
     def _get_api_request(
@@ -207,7 +213,11 @@ class DecodableDataPlaneApiClient:
             raise_api_exception(response.status_code, response.json())
 
     def _post_api_request(
-        self, bearer_token: str, endpoint_url: str, payload: Any = None, data: Any = None
+        self,
+        bearer_token: str,
+        endpoint_url: str,
+        payload: Any = None,
+        data: Any = None,
     ) -> requests.Response:
         response = requests.post(
             url=endpoint_url,
@@ -368,9 +378,11 @@ class DecodableControlPlaneApiClient:
             endpoint_url=f"{self.config.decodable_api_url()}/pipelines/{pipeline_id}",
         ).json()
 
-    def activate_pipeline(self, pipeline_id: str, start_positions: StreamStartPositions = dict()) -> Dict[str, Any]:
+    def activate_pipeline(
+        self, pipeline_id: str, start_positions: StreamStartPositions = dict()
+    ) -> Dict[str, Any]:
         return self._post_api_request(
-            payload={'start_positions': start_positions},
+            payload={"start_positions": start_positions},
             endpoint_url=f"{self.config.decodable_api_url()}/pipelines/{pipeline_id}/activate",
         ).json()
 
@@ -396,11 +408,13 @@ class DecodableControlPlaneApiClient:
         payload = {
             "sql": sql,
             "start_positions": {
-                stream: {"type": "TAG", "value": preview_start.value} for stream in input_streams
+                stream: {"type": "TAG", "value": preview_start.value}
+                for stream in input_streams
             },
         }
         response = self._post_api_request(
-            payload=payload, endpoint_url=f"{self.config.decodable_api_url()}/preview/tokens"
+            payload=payload,
+            endpoint_url=f"{self.config.decodable_api_url()}/preview/tokens",
         )
         return PreviewTokensResponse.from_dict(response.json())
 
@@ -413,7 +427,8 @@ class DecodableControlPlaneApiClient:
         payload = {"sql": sql}
 
         return self._post_api_request(
-            payload=payload, endpoint_url=f"{self.config.decodable_api_url()}/preview/dependencies"
+            payload=payload,
+            endpoint_url=f"{self.config.decodable_api_url()}/preview/dependencies",
         ).json()
 
     def list_connections(self) -> ApiResponse:
@@ -493,7 +508,7 @@ class DecodableControlPlaneApiClient:
 
         return AccountInfoResponse.from_dict(response.json())
 
-    def apply(self, resources: List[Dict[str, Any]], dry_run:bool=False):
+    def apply(self, resources: List[Dict[str, Any]], dry_run: bool = False):
         payload = dump_all(resources)
 
         response = requests.post(
@@ -512,10 +527,15 @@ class DecodableControlPlaneApiClient:
             raise_api_exception(response.status_code, response.json())
 
     def _parse_response(self, result: Any) -> ApiResponse:
-        return ApiResponse(items=result["items"], next_page_token=result["next_page_token"])
+        return ApiResponse(
+            items=result["items"], next_page_token=result["next_page_token"]
+        )
 
     def _post_api_request(
-            self, payload: Any, endpoint_url: str, params: dict[str, str] | None = None,
+        self,
+        payload: Any,
+        endpoint_url: str,
+        params: dict[str, str] | None = None,
     ) -> requests.Response:
         response = requests.post(
             url=endpoint_url,

@@ -15,7 +15,10 @@
 #
 from typing import Optional
 
-from decodable.client.client import DecodableControlPlaneApiClient, DecodableDataPlaneApiClient
+from decodable.client.client import (
+    DecodableControlPlaneApiClient,
+    DecodableDataPlaneApiClient,
+)
 from decodable.config.client_config import (
     DecodableControlPlaneClientConfig,
     DecodableDataPlaneClientConfig,
@@ -40,10 +43,14 @@ class DecodableClientFactory:
         access_token = profile_access_tokens.profile_tokens[profile_name]
         return DecodableControlPlaneApiClient(
             config=DecodableControlPlaneClientConfig(
-                access_token=access_token, account_name=decodable_account_name, api_url=api_url
+                access_token=access_token,
+                account_name=decodable_account_name,
+                api_url=api_url,
             )
         )
 
     @staticmethod
     def create_data_plane_client(api_url: str) -> DecodableDataPlaneApiClient:
-        return DecodableDataPlaneApiClient(config=DecodableDataPlaneClientConfig(api_url=api_url))
+        return DecodableDataPlaneApiClient(
+            config=DecodableDataPlaneClientConfig(api_url=api_url)
+        )

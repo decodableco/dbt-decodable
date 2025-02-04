@@ -23,7 +23,9 @@ from typing import List, Optional, Type
 
 @dataclass(frozen=True)
 class FieldType:
-    synonyms: List[FieldType] = field(init=False, repr=False, default_factory=lambda: [])
+    synonyms: List[FieldType] = field(
+        init=False, repr=False, default_factory=lambda: []
+    )
 
     def __eq__(self, __o: object) -> bool:
         if not issubclass(__o.__class__, FieldType):
@@ -294,7 +296,9 @@ class Decimal(ExactNumericType):
 
     @classmethod
     def from_str(cls, type: str) -> Optional[FieldType]:
-        found = re.fullmatch(r"DECIMAL(\((?P<precision>\d+)(, (?P<scale>\d+))?\))?", type)
+        found = re.fullmatch(
+            r"DECIMAL(\((?P<precision>\d+)(, (?P<scale>\d+))?\))?", type
+        )
 
         if not found:
             return None
@@ -350,7 +354,9 @@ class Numeric(ExactNumericType):
 
     @classmethod
     def from_str(cls, type: str) -> Optional[FieldType]:
-        found = re.fullmatch(r"NUMERIC(\((?P<precision>\d+)(, (?P<scale>\d+))?\))?", type)
+        found = re.fullmatch(
+            r"NUMERIC(\((?P<precision>\d+)(, (?P<scale>\d+))?\))?", type
+        )
 
         if not found:
             return None
@@ -579,7 +585,9 @@ class TimestampLocal(TimestampType):
 
     def __post_init__(self):
         if not self.is_synonym and self.timezone:
-            self.synonyms.append(Timestamp(self.precision, timezone=True, is_synonym=True))
+            self.synonyms.append(
+                Timestamp(self.precision, timezone=True, is_synonym=True)
+            )
 
     @classmethod
     def from_str(cls, type: str) -> Optional[FieldType]:
@@ -605,7 +613,9 @@ class CompoundType(FieldType):
         ROW = 2
 
     container_type: ContainerType = field(init=False, repr=False)
-    internal_types: List[FieldType] = field(init=False, repr=False, default_factory=lambda: [])
+    internal_types: List[FieldType] = field(
+        init=False, repr=False, default_factory=lambda: []
+    )
 
     @classmethod
     def from_str(cls, type: str) -> Optional[FieldType]:

@@ -18,18 +18,22 @@ from enum import Enum
 from typing import Union, Dict
 from dataclasses import dataclass
 
+
 class StartPositionTag(Enum):
     EARLIEST = "earliest"
     LATEST = "latest"
+
 
 @dataclass
 class StartPosition:
     type: str
     value: str
 
+
 StreamStartPositions = Dict[str, Dict[str, str]]
 
 StartPositionSpec = Union[StartPositionTag, StartPosition, StreamStartPositions]
+
 
 class Connector(Enum):
     DATAGEN = "datagen"

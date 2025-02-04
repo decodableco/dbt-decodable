@@ -17,7 +17,12 @@
 
 import json
 
-from dataclasses import dataclass, asdict, field as dataclass_field, fields as dataclass_fields
+from dataclasses import (
+    dataclass,
+    asdict,
+    field as dataclass_field,
+    fields as dataclass_fields,
+)
 from decodable.client.types import FieldType
 from typing import Any, Sequence, List, Dict
 
@@ -48,7 +53,9 @@ class SchemaField:
         res = {}
         for field in dataclass_fields(self):
             field_value = getattr(self, field.name)
-            res[field.name] = repr(field_value) if field.type == FieldType else field_value
+            res[field.name] = (
+                repr(field_value) if field.type == FieldType else field_value
+            )
         return res
 
     def __str__(self) -> str:
@@ -120,14 +127,15 @@ class SchemaV2:
 
     @classmethod
     def from_json(cls, json: Dict[str, Any]) -> "SchemaV2":
-        primary_key: List[str] = json.get('constraints', {}).get('primary_key',[])
+        primary_key: List[str] = json.get("constraints", {}).get("primary_key", [])
         return SchemaV2(
-            fields=[schema_field_factory(field) for field in json.get('fields', [])],
+            fields=[schema_field_factory(field) for field in json.get("fields", [])],
             watermarks=[
                 Watermark(name=w_json["name"], expression=w_json["expression"])
-                for w_json in json.get('watermarks', [])
+                for w_json in json.get("watermarks", [])
             ],
-            constraints=Constraints(primary_key=primary_key))
+            constraints=Constraints(primary_key=primary_key),
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         return {

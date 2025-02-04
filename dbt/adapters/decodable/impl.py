@@ -15,7 +15,17 @@
 #
 
 from dataclasses import dataclass, field as dataclass_field
-from typing import Any, ContextManager, Dict, Hashable, List, Optional, Set, Type, Sequence
+from typing import (
+    Any,
+    ContextManager,
+    Dict,
+    Hashable,
+    List,
+    Optional,
+    Set,
+    Type,
+    Sequence,
+)
 
 from agate.table import Table as AgateTable
 from dbt.adapters.base import BaseAdapter, BaseRelation, Column
@@ -52,7 +62,12 @@ from decodable.client.types import (
     Decimal,
 )
 
-from decodable.client.schema import SchemaV2, SchemaField, PhysicalSchemaField, Constraints
+from decodable.client.schema import (
+    SchemaV2,
+    SchemaField,
+    PhysicalSchemaField,
+    Constraints,
+)
 
 
 @dataclass
@@ -188,7 +203,9 @@ class DecodableAdapter(BaseAdapter):
         self.cache_dropped(relation)
 
         if relation.type is None:
-            raise_compiler_error(f"Tried to drop relation {relation}, but its type is null.")
+            raise_compiler_error(
+                f"Tried to drop relation {relation}, but its type is null."
+            )
 
         if relation.identifier is None:
             return
@@ -200,7 +217,10 @@ class DecodableAdapter(BaseAdapter):
         pipeline_id = client.get_pipeline_id(relation.render())
         if pipeline_id:
             pipe_info = client.get_pipeline_information(pipeline_id)
-            if pipe_info["actual_state"] == "RUNNING" or pipe_info["target_state"] == "RUNNING":
+            if (
+                pipe_info["actual_state"] == "RUNNING"
+                or pipe_info["target_state"] == "RUNNING"
+            ):
                 client.deactivate_pipeline(pipeline_id)
             client.delete_pipeline(pipeline_id)
             self.logger.debug(f"Pipeline '{relation}' deleted successfully")
@@ -260,7 +280,9 @@ class DecodableAdapter(BaseAdapter):
         data_plane_client.clear_stream(stream_id, clear_token_response.token)
 
     @available.parse_none
-    def rename_relation(self, from_relation: BaseRelation, to_relation: BaseRelation) -> None:
+    def rename_relation(
+        self, from_relation: BaseRelation, to_relation: BaseRelation
+    ) -> None:
         """Rename the relation from from_relation to to_relation.
 
         Implementors must call self.cache.rename() to preserve cache state.
@@ -274,7 +296,9 @@ class DecodableAdapter(BaseAdapter):
         stream_id = client.get_stream_id(from_relation.render())
 
         if not stream_id:
-            raise_database_error(f"Cannot rename '{from_relation}': stream does not exist")
+            raise_database_error(
+                f"Cannot rename '{from_relation}': stream does not exist"
+            )
 
         if not to_relation.identifier:
             raise_compiler_error(f"Cannot rename relation {from_relation} to nothing")
@@ -327,7 +351,9 @@ class DecodableAdapter(BaseAdapter):
                 client.update_pipeline(
                     pipeline_id=pipe_id,
                     props={
-                        "sql": self._replace_source(from_relation, to_relation, pipe_info["sql"])
+                        "sql": self._replace_source(
+                            from_relation, to_relation, pipe_info["sql"]
+                        )
                     },
                 )
                 renamed_sources += 1
@@ -348,10 +374,14 @@ class DecodableAdapter(BaseAdapter):
             "`expand_target_column_types` is not implemented for this adapter!"
         )
 
-    def list_relations_without_caching(self, schema_relation: BaseRelation) -> List[BaseRelation]:
+    def list_relations_without_caching(
+        self, schema_relation: BaseRelation
+    ) -> List[BaseRelation]:
         relations: List[BaseRelation] = []
 
-        stream_list: List[Dict[str, Any]] = self._control_plane_client().list_streams().items
+        stream_list: List[Dict[str, Any]] = (
+            self._control_plane_client().list_streams().items
+        )
         for stream in stream_list:
             relations.append(
                 self.Relation.create(
@@ -379,7 +409,9 @@ class DecodableAdapter(BaseAdapter):
 
         for schema_column in stream_info["schema_v2"]["fields"]:
             columns.append(
-                Column.create(name=schema_column["name"], label_or_dtype=schema_column.get("type"))
+                Column.create(
+                    name=schema_column["name"], label_or_dtype=schema_column.get("type")
+                )
             )
 
         return columns
@@ -393,11 +425,13 @@ class DecodableAdapter(BaseAdapter):
         output_stream: Dict[str, Any],
     ) -> bool:
         client = self._control_plane_client()
-        for resource_result in client.apply(self.generate_declarative_yaml(sql, relation, pipeline, output_stream), dry_run=True):
-            if resource_result.get('result', 'unknown') != 'unchanged':
+        for resource_result in client.apply(
+            self.generate_declarative_yaml(sql, relation, pipeline, output_stream),
+            dry_run=True,
+        ):
+            if resource_result.get("result", "unknown") != "unchanged":
                 return True
         return False
-
 
     @available
     def create_table(
@@ -414,7 +448,9 @@ class DecodableAdapter(BaseAdapter):
 
         self.logger.debug(f"Creating table {relation}")
 
-        name: str = relation.identifier.split("__")[0]  # strip any suffixes added by dbt
+        name: str = relation.identifier.split("__")[
+            0
+        ]  # strip any suffixes added by dbt
         model: Optional[ParsedNode] = None
         for node, info in nodes.items():
             if info["alias"] == name:
@@ -425,7 +461,9 @@ class DecodableAdapter(BaseAdapter):
 
         client = self._control_plane_client()
 
-        client.apply(self.generate_declarative_yaml(sql, relation, pipeline, output_stream))
+        client.apply(
+            self.generate_declarative_yaml(sql, relation, pipeline, output_stream)
+        )
 
         self.logger.debug(f"Pipeline '{relation}' successfully created!")
 
@@ -439,37 +477,39 @@ class DecodableAdapter(BaseAdapter):
     ) -> List[Dict[str, Any]]:
         self.populate_output_stream_spec(relation, sql, output_stream)
 
-        pipeline['sql'] = self._wrap_as_pipeline(relation.render(), sql)
-        pipeline.setdefault('execution', {})
-        pipeline['execution'].setdefault('active', True)
+        pipeline["sql"] = self._wrap_as_pipeline(relation.render(), sql)
+        pipeline.setdefault("execution", {})
+        pipeline["execution"].setdefault("active", True)
 
         return [
             {
-                'kind': 'stream',
-                'spec_version': 'v1',
-                'metadata': {
-                    'name': relation.render(),
+                "kind": "stream",
+                "spec_version": "v1",
+                "metadata": {
+                    "name": relation.render(),
                 },
-                'spec': output_stream
+                "spec": output_stream,
             },
             {
-                'kind': 'pipeline',
-                'spec_version': 'v2',
-                'metadata': {
-                    'name': relation.render(),
-                    'description': self._pipeline_description(relation)
+                "kind": "pipeline",
+                "spec_version": "v2",
+                "metadata": {
+                    "name": relation.render(),
+                    "description": self._pipeline_description(relation),
                 },
-                'spec': pipeline
-            }
+                "spec": pipeline,
+            },
         ]
 
-    def populate_output_stream_spec(self, relation: BaseRelation, sql: str, stream_spec: Dict[str, Any]):
+    def populate_output_stream_spec(
+        self, relation: BaseRelation, sql: str, stream_spec: Dict[str, Any]
+    ):
         client = self._control_plane_client()
-        stream_spec.setdefault('schema_v2', {})
-        stream_spec['schema_v2'].setdefault('fields', [])
-        stream_spec['schema_v2'].setdefault('constraints', {})
-        stream_spec['schema_v2'].setdefault('watermarks', [])
-        if len(stream_spec['schema_v2']['fields']) == 0:
+        stream_spec.setdefault("schema_v2", {})
+        stream_spec["schema_v2"].setdefault("fields", [])
+        stream_spec["schema_v2"].setdefault("constraints", {})
+        stream_spec["schema_v2"].setdefault("watermarks", [])
+        if len(stream_spec["schema_v2"]["fields"]) == 0:
             fields: List[Dict[str, str]] = client.get_stream_from_sql(
                 self._wrap_as_pipeline(relation.render(), sql)
             )["schema_v2"]["fields"]
@@ -479,7 +519,7 @@ class DecodableAdapter(BaseAdapter):
                     f"Error creating the {relation} stream: empty schema returned for sql:\n{sql}"
                 )
 
-            stream_spec['schema_v2']['fields'] = fields
+            stream_spec["schema_v2"]["fields"] = fields
 
     @available
     def create_seed_table(
@@ -518,7 +558,8 @@ class DecodableAdapter(BaseAdapter):
 
         self.logger.debug(f"Creating connection and stream for seed `{table_name}`...")
         response = client.create_connection(
-            name=table_name, schema=SchemaV2(schema_fields, [], Constraints(primary_key=[]))
+            name=table_name,
+            schema=SchemaV2(schema_fields, [], Constraints(primary_key=[])),
         )
         self.logger.debug(f"Connection and stream `{table_name}` successfully created!")
 
@@ -540,7 +581,9 @@ class DecodableAdapter(BaseAdapter):
         events: List[Dict[str, Any]] = []
         for row in data.rows:
             event: Dict[str, Any] = {
-                col_name: str(row[col_name])  # pyright: ignore [reportUnknownArgumentType]
+                col_name: str(
+                    row[col_name]
+                )  # pyright: ignore [reportUnknownArgumentType]
                 for col_name in data.column_names
             }
             events.append(event)
@@ -559,7 +602,9 @@ class DecodableAdapter(BaseAdapter):
 
         conn_id = client.get_connection_id(connection.render())
         if not conn_id:
-            raise_database_error(f"Unable to reactivate connection: '{connection}' does not exist")
+            raise_database_error(
+                f"Unable to reactivate connection: '{connection}' does not exist"
+            )
 
         client.activate_connection(conn_id)
 
@@ -569,7 +614,9 @@ class DecodableAdapter(BaseAdapter):
 
         pipe_id = client.get_pipeline_id(pipe.render())
         if not pipe_id:
-            raise_database_error(f"Unable to deactivate pipeline: '{pipe}' does not exist")
+            raise_database_error(
+                f"Unable to deactivate pipeline: '{pipe}' does not exist"
+            )
 
         client.deactivate_pipeline(pipe_id)
 
@@ -580,7 +627,10 @@ class DecodableAdapter(BaseAdapter):
         pipeline_id = client.get_pipeline_id(pipe.render())
         if pipeline_id:
             pipe_info = client.get_pipeline_information(pipeline_id)
-            if pipe_info["actual_state"] == "RUNNING" or pipe_info["target_state"] == "RUNNING":
+            if (
+                pipe_info["actual_state"] == "RUNNING"
+                or pipe_info["target_state"] == "RUNNING"
+            ):
                 client.deactivate_pipeline(pipeline_id)
             client.delete_pipeline(pipeline_id)
 
@@ -606,7 +656,9 @@ class DecodableAdapter(BaseAdapter):
 
         conn_id = client.get_connection_id(conn.render())
         if not conn_id:
-            raise_database_error(f"Unable to delete connection: `{conn}` does not exist")
+            raise_database_error(
+                f"Unable to delete connection: `{conn}` does not exist"
+            )
 
         client.deactivate_connection(conn_id)
         client.delete_connection(conn_id)
@@ -669,11 +721,15 @@ class DecodableAdapter(BaseAdapter):
         return f"INSERT INTO {sink} {sql}"
 
     @classmethod
-    def _replace_sink(cls, old_sink: BaseRelation, new_sink: BaseRelation, sql: str) -> str:
+    def _replace_sink(
+        cls, old_sink: BaseRelation, new_sink: BaseRelation, sql: str
+    ) -> str:
         return sql.replace(f"INSERT INTO {old_sink}", f"INSERT INTO {new_sink}", 1)
 
     @classmethod
-    def _replace_source(cls, old_source: BaseRelation, new_source: BaseRelation, sql: str) -> str:
+    def _replace_source(
+        cls, old_source: BaseRelation, new_source: BaseRelation, sql: str
+    ) -> str:
         sql = sql.replace(f"from {old_source}", f"from {new_source}")
         return sql.replace(f"FROM {old_source}", f"FROM {new_source}")
 

@@ -26,7 +26,9 @@ PROFILE_ENV_VARIABLE_NAME = "DECODABLE_PROFILE"
 
 class DecodableProfileReader:
     @staticmethod
-    def load_profiles(default_profile_path: str = DEFAULT_PROFILE_PATH) -> DecodableAccessTokens:
+    def load_profiles(
+        default_profile_path: str = DEFAULT_PROFILE_PATH,
+    ) -> DecodableAccessTokens:
         profiles_path = Path(default_profile_path)
         if profiles_path.is_file() is False:
             raise Exception(
@@ -49,5 +51,7 @@ class DecodableProfileReader:
         config_data = load(yaml, Loader=SafeLoader)
         access_tokens = {}
         for profile_name in config_data["tokens"]:
-            access_tokens[profile_name] = config_data["tokens"][profile_name]["access_token"]
+            access_tokens[profile_name] = config_data["tokens"][profile_name][
+                "access_token"
+            ]
         return DecodableAccessTokens(profile_tokens=access_tokens)

@@ -5,7 +5,7 @@
                 "watermarks": [
                     {
                         "name": "min_timestamp",
-                        "expression": "min_timestamp - interval '0.100' second"
+                        "expression": "min_timestamp - interval '0.100' SECOND"
                     }
                 ],
                 "constraints": {
