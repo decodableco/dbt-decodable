@@ -25,7 +25,7 @@ from yaml import dump_all, full_load_all
 import requests
 from typing_extensions import override
 
-from decodable.client.api import Connector, ConnectionType, StartPositionSpec, StartPosition, StreamStartPositions, StartPositionTag
+from decodable.client.api import Connector, ConnectionType, StreamStartPositions, StartPositionTag
 from decodable.config.client_config import (
     DecodableControlPlaneClientConfig,
     DecodableDataPlaneClientConfig,

@@ -19,7 +19,7 @@ import json
 
 from dataclasses import dataclass, asdict, field as dataclass_field, fields as dataclass_fields
 from decodable.client.types import FieldType
-from typing import Any, Sequence, List, Dict, Union, Literal
+from typing import Any, Sequence, List, Dict
 
 from dbt.exceptions import raise_compiler_error
 

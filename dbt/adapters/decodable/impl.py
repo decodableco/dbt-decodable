@@ -15,7 +15,7 @@
 #
 
 from dataclasses import dataclass, field as dataclass_field
-from typing import Any, ContextManager, Dict, Hashable, List, Optional, Set, Type, Sequence, Union
+from typing import Any, ContextManager, Dict, Hashable, List, Optional, Set, Type, Sequence
 
 from agate.table import Table as AgateTable
 from dbt.adapters.base import BaseAdapter, BaseRelation, Column
@@ -50,9 +50,6 @@ from decodable.client.types import (
     Date,
     Time,
     Decimal,
-)
-from decodable.client.api import (
-    StreamStartPositions
 )
 
 from decodable.client.schema import SchemaV2, SchemaField, PhysicalSchemaField, Constraints
