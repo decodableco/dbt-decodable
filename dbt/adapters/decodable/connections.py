@@ -108,9 +108,7 @@ class DecodableAdapterConnectionManager(SQLConnectionManager):
         and moves it to the "open" state.
         """
         if not connection.credentials:
-            raise RuntimeException(
-                "Cannot open a Decodable connection without credentials"
-            )
+            raise RuntimeException("Cannot open a Decodable connection without credentials")
 
         credentials: DecodableAdapterCredentials = connection.credentials
         control_plane_client = DecodableClientFactory.create_control_plane_client(
@@ -135,9 +133,7 @@ class DecodableAdapterConnectionManager(SQLConnectionManager):
             credentials.account_name
         ).data_plane_hostname
         data_plane_base_url = f"https://{data_plane_hostname}/v1alpha2"
-        data_plane_client = DecodableClientFactory.create_data_plane_client(
-            data_plane_base_url
-        )
+        data_plane_client = DecodableClientFactory.create_data_plane_client(data_plane_base_url)
 
         connection.handle = DecodableHandler(
             control_plane_client,

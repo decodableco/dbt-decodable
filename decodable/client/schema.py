@@ -53,9 +53,7 @@ class SchemaField:
         res = {}
         for field in dataclass_fields(self):
             field_value = getattr(self, field.name)
-            res[field.name] = (
-                repr(field_value) if field.type == FieldType else field_value
-            )
+            res[field.name] = repr(field_value) if field.type == FieldType else field_value
         return res
 
     def __str__(self) -> str:

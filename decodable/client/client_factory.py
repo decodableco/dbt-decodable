@@ -51,6 +51,4 @@ class DecodableClientFactory:
 
     @staticmethod
     def create_data_plane_client(api_url: str) -> DecodableDataPlaneApiClient:
-        return DecodableDataPlaneApiClient(
-            config=DecodableDataPlaneClientConfig(api_url=api_url)
-        )
+        return DecodableDataPlaneApiClient(config=DecodableDataPlaneClientConfig(api_url=api_url))

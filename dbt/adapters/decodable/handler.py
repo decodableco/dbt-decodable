@@ -64,9 +64,9 @@ class DecodableCursor:
 
     def execute(self, sql: str, bindings: Optional[Sequence[Any]] = None) -> None:
         self.logger.debug(f"Execute(sql): {sql}")
-        inputs: List[
-            Dict[str, Any]
-        ] = self.control_plane_client.get_preview_dependencies(sql)["inputs"]
+        inputs: List[Dict[str, Any]] = self.control_plane_client.get_preview_dependencies(sql)[
+            "inputs"
+        ]
         input_streams: List[str] = [i["resourceName"] for i in inputs]
         tokens_response = self.control_plane_client.get_preview_tokens(
             sql, self.preview_start, input_streams
@@ -81,9 +81,7 @@ class DecodableCursor:
 
         for _ in exponential_backoff(self.timeout):
             next_token = response.next_token
-            response = self.data_plane_client.get_preview(
-                tokens_response.get_token, next_token
-            )
+            response = self.data_plane_client.get_preview(tokens_response.get_token, next_token)
             self.logger.debug(f"Run preview response: {response}")
 
             if append_stream:
@@ -127,9 +125,7 @@ class DecodableCursor:
         return result
 
     def seed_fake_results(self):
-        self.last_result = [
-            {"failures": 0, "should_warn": False, "should_error": False}
-        ]
+        self.last_result = [{"failures": 0, "should_warn": False, "should_error": False}]
 
 
 class DecodableHandler:

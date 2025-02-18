@@ -408,8 +408,7 @@ class DecodableControlPlaneApiClient:
         payload = {
             "sql": sql,
             "start_positions": {
-                stream: {"type": "TAG", "value": preview_start.value}
-                for stream in input_streams
+                stream: {"type": "TAG", "value": preview_start.value} for stream in input_streams
             },
         }
         response = self._post_api_request(
@@ -530,9 +529,7 @@ class DecodableControlPlaneApiClient:
             assert False, "unreachable"
 
     def _parse_response(self, result: Any) -> ApiResponse:
-        return ApiResponse(
-            items=result["items"], next_page_token=result["next_page_token"]
-        )
+        return ApiResponse(items=result["items"], next_page_token=result["next_page_token"])
 
     def _post_api_request(
         self,

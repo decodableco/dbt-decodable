@@ -203,9 +203,7 @@ class DecodableAdapter(BaseAdapter):
         self.cache_dropped(relation)
 
         if relation.type is None:
-            raise_compiler_error(
-                f"Tried to drop relation {relation}, but its type is null."
-            )
+            raise_compiler_error(f"Tried to drop relation {relation}, but its type is null.")
 
         if relation.identifier is None:
             return
@@ -217,10 +215,7 @@ class DecodableAdapter(BaseAdapter):
         pipeline_id = client.get_pipeline_id(relation.render())
         if pipeline_id:
             pipe_info = client.get_pipeline_information(pipeline_id)
-            if (
-                pipe_info["actual_state"] == "RUNNING"
-                or pipe_info["target_state"] == "RUNNING"
-            ):
+            if pipe_info["actual_state"] == "RUNNING" or pipe_info["target_state"] == "RUNNING":
                 client.deactivate_pipeline(pipeline_id)
             client.delete_pipeline(pipeline_id)
             self.logger.debug(f"Pipeline '{relation}' deleted successfully")
@@ -280,9 +275,7 @@ class DecodableAdapter(BaseAdapter):
         data_plane_client.clear_stream(stream_id, clear_token_response.token)
 
     @available.parse_none
-    def rename_relation(
-        self, from_relation: BaseRelation, to_relation: BaseRelation
-    ) -> None:
+    def rename_relation(self, from_relation: BaseRelation, to_relation: BaseRelation) -> None:
         """Rename the relation from from_relation to to_relation.
 
         Implementors must call self.cache.rename() to preserve cache state.
@@ -296,9 +289,7 @@ class DecodableAdapter(BaseAdapter):
         stream_id = client.get_stream_id(from_relation.render())
 
         if not stream_id:
-            raise_database_error(
-                f"Cannot rename '{from_relation}': stream does not exist"
-            )
+            raise_database_error(f"Cannot rename '{from_relation}': stream does not exist")
 
         if not to_relation.identifier:
             raise_compiler_error(f"Cannot rename relation {from_relation} to nothing")
@@ -351,9 +342,7 @@ class DecodableAdapter(BaseAdapter):
                 client.update_pipeline(
                     pipeline_id=pipe_id,
                     props={
-                        "sql": self._replace_source(
-                            from_relation, to_relation, pipe_info["sql"]
-                        )
+                        "sql": self._replace_source(from_relation, to_relation, pipe_info["sql"])
                     },
                 )
                 renamed_sources += 1
@@ -374,14 +363,10 @@ class DecodableAdapter(BaseAdapter):
             "`expand_target_column_types` is not implemented for this adapter!"
         )
 
-    def list_relations_without_caching(
-        self, schema_relation: BaseRelation
-    ) -> List[BaseRelation]:
+    def list_relations_without_caching(self, schema_relation: BaseRelation) -> List[BaseRelation]:
         relations: List[BaseRelation] = []
 
-        stream_list: List[Dict[str, Any]] = (
-            self._control_plane_client().list_streams().items
-        )
+        stream_list: List[Dict[str, Any]] = self._control_plane_client().list_streams().items
         for stream in stream_list:
             relations.append(
                 self.Relation.create(
@@ -409,9 +394,7 @@ class DecodableAdapter(BaseAdapter):
 
         for schema_column in stream_info["schema_v2"]["fields"]:
             columns.append(
-                Column.create(
-                    name=schema_column["name"], label_or_dtype=schema_column.get("type")
-                )
+                Column.create(name=schema_column["name"], label_or_dtype=schema_column.get("type"))
             )
 
         return columns
@@ -448,9 +431,7 @@ class DecodableAdapter(BaseAdapter):
 
         self.logger.debug(f"Creating table {relation}")
 
-        name: str = relation.identifier.split("__")[
-            0
-        ]  # strip any suffixes added by dbt
+        name: str = relation.identifier.split("__")[0]  # strip any suffixes added by dbt
         model: Optional[ParsedNode] = None
         for node, info in nodes.items():
             if info["alias"] == name:
@@ -461,9 +442,7 @@ class DecodableAdapter(BaseAdapter):
 
         client = self._control_plane_client()
 
-        client.apply(
-            self.generate_declarative_yaml(sql, relation, pipeline, output_stream)
-        )
+        client.apply(self.generate_declarative_yaml(sql, relation, pipeline, output_stream))
 
         self.logger.debug(f"Pipeline '{relation}' successfully created!")
 
@@ -581,9 +560,7 @@ class DecodableAdapter(BaseAdapter):
         events: List[Dict[str, Any]] = []
         for row in data.rows:
             event: Dict[str, Any] = {
-                col_name: str(
-                    row[col_name]  # pyright: ignore [reportUnknownArgumentType]
-                )
+                col_name: str(row[col_name])  # pyright: ignore [reportUnknownArgumentType]
                 for col_name in data.column_names
             }
             events.append(event)
@@ -602,9 +579,7 @@ class DecodableAdapter(BaseAdapter):
 
         conn_id = client.get_connection_id(connection.render())
         if not conn_id:
-            raise_database_error(
-                f"Unable to reactivate connection: '{connection}' does not exist"
-            )
+            raise_database_error(f"Unable to reactivate connection: '{connection}' does not exist")
             assert False, "unreachable"
 
         client.activate_connection(conn_id)
@@ -615,9 +590,7 @@ class DecodableAdapter(BaseAdapter):
 
         pipe_id = client.get_pipeline_id(pipe.render())
         if not pipe_id:
-            raise_database_error(
-                f"Unable to deactivate pipeline: '{pipe}' does not exist"
-            )
+            raise_database_error(f"Unable to deactivate pipeline: '{pipe}' does not exist")
 
         client.deactivate_pipeline(pipe_id)
 
@@ -628,10 +601,7 @@ class DecodableAdapter(BaseAdapter):
         pipeline_id = client.get_pipeline_id(pipe.render())
         if pipeline_id:
             pipe_info = client.get_pipeline_information(pipeline_id)
-            if (
-                pipe_info["actual_state"] == "RUNNING"
-                or pipe_info["target_state"] == "RUNNING"
-            ):
+            if pipe_info["actual_state"] == "RUNNING" or pipe_info["target_state"] == "RUNNING":
                 client.deactivate_pipeline(pipeline_id)
             client.delete_pipeline(pipeline_id)
 
@@ -658,9 +628,7 @@ class DecodableAdapter(BaseAdapter):
 
         conn_id = client.get_connection_id(conn.render())
         if not conn_id:
-            raise_database_error(
-                f"Unable to delete connection: `{conn}` does not exist"
-            )
+            raise_database_error(f"Unable to delete connection: `{conn}` does not exist")
             assert False, "unreachable"
 
         client.deactivate_connection(conn_id)
@@ -724,15 +692,11 @@ class DecodableAdapter(BaseAdapter):
         return f"INSERT INTO {sink} {sql}"
 
     @classmethod
-    def _replace_sink(
-        cls, old_sink: BaseRelation, new_sink: BaseRelation, sql: str
-    ) -> str:
+    def _replace_sink(cls, old_sink: BaseRelation, new_sink: BaseRelation, sql: str) -> str:
         return sql.replace(f"INSERT INTO {old_sink}", f"INSERT INTO {new_sink}", 1)
 
     @classmethod
-    def _replace_source(
-        cls, old_source: BaseRelation, new_source: BaseRelation, sql: str
-    ) -> str:
+    def _replace_source(cls, old_source: BaseRelation, new_source: BaseRelation, sql: str) -> str:
         sql = sql.replace(f"from {old_source}", f"from {new_source}")
         return sql.replace(f"FROM {old_source}", f"FROM {new_source}")
 
