@@ -461,7 +461,9 @@ class DecodableAdapter(BaseAdapter):
 
         client = self._control_plane_client()
 
-        client.apply(self.generate_declarative_yaml(sql, relation, pipeline, output_stream))
+        client.apply(
+            self.generate_declarative_yaml(sql, relation, pipeline, output_stream)
+        )
 
         self.logger.debug(f"Pipeline '{relation}' successfully created!")
 
@@ -580,7 +582,7 @@ class DecodableAdapter(BaseAdapter):
         for row in data.rows:
             event: Dict[str, Any] = {
                 col_name: str(
-                    row[col_name] # pyright: ignore [reportUnknownArgumentType]
+                    row[col_name]  # pyright: ignore [reportUnknownArgumentType]
                 )
                 for col_name in data.column_names
             }

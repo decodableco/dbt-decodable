@@ -16,7 +16,10 @@
 import os
 from unittest import mock
 from decodable.config.profile import DecodableAccessTokens
-from decodable.config.profile_reader import DecodableProfileReader, PROFILE_ENV_VARIABLE_NAME
+from decodable.config.profile_reader import (
+    DecodableProfileReader,
+    PROFILE_ENV_VARIABLE_NAME,
+)
 
 TEST_PROFILE_NAME = "default"
 TEST_PROFILE_ACCESS_TOKEN = "yyy"
@@ -28,7 +31,9 @@ class TestProfileAdapter:
     @mock.patch.dict(os.environ, {PROFILE_ENV_VARIABLE_NAME: "test"})
     def test_get_profile_name(self):
         assert DecodableProfileReader.get_profile_name(profile_name=None) == "test"
-        assert DecodableProfileReader.get_profile_name(profile_name="default") == "default"
+        assert (
+            DecodableProfileReader.get_profile_name(profile_name="default") == "default"
+        )
 
     """Test loading default profile"""
 
@@ -36,4 +41,6 @@ class TestProfileAdapter:
         test_profile: DecodableAccessTokens = DecodableProfileReader.load_profiles(
             f"{os.path.dirname(__file__)}/test_profile.yml"
         )
-        assert test_profile.profile_tokens[TEST_PROFILE_NAME] == TEST_PROFILE_ACCESS_TOKEN
+        assert (
+            test_profile.profile_tokens[TEST_PROFILE_NAME] == TEST_PROFILE_ACCESS_TOKEN
+        )

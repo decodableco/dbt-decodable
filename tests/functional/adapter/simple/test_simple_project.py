@@ -16,7 +16,9 @@
 
 from typing import Any, List
 import pytest
-from dbt.tests.util import run_dbt  # pyright: ignore [reportMissingImports,reportMissingTypeStubs]
+from dbt.tests.util import (
+    run_dbt,
+)  # pyright: ignore [reportMissingImports,reportMissingTypeStubs]
 
 from fixtures import (
     my_seed_csv,

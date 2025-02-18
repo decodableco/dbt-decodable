@@ -54,7 +54,9 @@ class TestPhysicalSchemaField(unittest.TestCase):
 
     def test_str(self):
         field = PhysicalSchemaField(name="field1", type=String())
-        self.assertEqual(str(field), "name: 'field1' | kind: 'physical' | type: 'STRING'")
+        self.assertEqual(
+            str(field), "name: 'field1' | kind: 'physical' | type: 'STRING'"
+        )
 
     def test_hash(self):
         field1 = PhysicalSchemaField(name="field1", type=String())
@@ -112,8 +114,12 @@ class TestSchemaV2(unittest.TestCase):
         fields = [PhysicalSchemaField(name="field1", type=String())]
         watermarks = [Watermark(name="wm1", expression="expr1")]
         constraints = Constraints(primary_key=["field1"])
-        schema1 = SchemaV2(fields=fields, watermarks=watermarks, constraints=constraints)
-        schema2 = SchemaV2(fields=fields, watermarks=watermarks, constraints=constraints)
+        schema1 = SchemaV2(
+            fields=fields, watermarks=watermarks, constraints=constraints
+        )
+        schema2 = SchemaV2(
+            fields=fields, watermarks=watermarks, constraints=constraints
+        )
         self.assertEqual(schema1, schema2)
 
     def test_hash(self):
@@ -124,7 +130,9 @@ class TestSchemaV2(unittest.TestCase):
         expected_hash = hash(
             json.dumps(
                 {
-                    "fields": [{"name": "field1", "kind": "physical", "type": "STRING"}],
+                    "fields": [
+                        {"name": "field1", "kind": "physical", "type": "STRING"}
+                    ],
                     "watermarks": [{"name": "wm1", "expression": "expr1"}],
                     "constraints": {"primary_key": ["field1"]},
                 }
@@ -143,7 +151,12 @@ class TestSchemaFieldFactory(unittest.TestCase):
         self.assertEqual(field.kind, FieldKind.physical)
 
     def test_schema_field_factory_metadata(self):
-        field_dict = {"name": "field1", "kind": "metadata", "key": "key1", "type": "STRING"}
+        field_dict = {
+            "name": "field1",
+            "kind": "metadata",
+            "key": "key1",
+            "type": "STRING",
+        }
         field = schema_field_factory(field_dict)
         assert type(field) is MetadataSchemaField
         self.assertEqual(field.name, "field1")

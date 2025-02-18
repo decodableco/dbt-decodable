@@ -508,7 +508,9 @@ class DecodableControlPlaneApiClient:
 
         return AccountInfoResponse.from_dict(response.json())
 
-    def apply(self, resources: List[Dict[str, Any]], dry_run: bool = False) -> List[Dict[str, Any]]:
+    def apply(
+        self, resources: List[Dict[str, Any]], dry_run: bool = False
+    ) -> List[Dict[str, Any]]:
         payload = dump_all(resources)
 
         response = requests.post(
@@ -525,7 +527,7 @@ class DecodableControlPlaneApiClient:
             return list(full_load_all(response.content))
         else:
             raise_api_exception(response.status_code, response.json())
-            assert False, 'unreachable'
+            assert False, "unreachable"
 
     def _parse_response(self, result: Any) -> ApiResponse:
         return ApiResponse(
@@ -553,8 +555,7 @@ class DecodableControlPlaneApiClient:
             return response
         else:
             raise_api_exception(response.status_code, response.json())
-            assert False, 'unreachable'
-
+            assert False, "unreachable"
 
     def _patch_api_request(self, payload: Any, endpoint_url: str) -> requests.Response:
         response = requests.patch(
