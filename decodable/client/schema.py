@@ -17,7 +17,12 @@
 
 import json
 
-from dataclasses import dataclass, asdict, field as dataclass_field, fields as dataclass_fields
+from dataclasses import (
+    dataclass,
+    asdict,
+    field as dataclass_field,
+    fields as dataclass_fields,
+)
 from decodable.client.types import FieldType
 from typing import Any, Sequence, List, Dict
 
@@ -40,7 +45,9 @@ class SchemaField:
         field_type = FieldType.from_str(type_)
         if field_type is None:
             raise_compiler_error(f"Type '{type_}' not recognized")
-        return field_type
+            assert False, "unreachable"
+        else:
+            return field_type
 
     def to_dict(self) -> Dict[str, str]:
         res = {}
@@ -117,28 +124,15 @@ class SchemaV2:
     constraints: Constraints
 
     @classmethod
-    def from_json_components(
-        cls,
-        fields: List[Dict[str, str]],
-        watermarks: List[Dict[str, str]],
-        primary_key: List[str],
-    ) -> "SchemaV2":
-        return SchemaV2(
-            fields=[schema_field_factory(field) for field in fields],
-            watermarks=[
-                Watermark(name=w_json["name"], expression=w_json["expression"])
-                for w_json in watermarks
-            ],
-            constraints=Constraints(primary_key=primary_key),
-        )
-
-    @classmethod
     def from_json(cls, json: Dict[str, Any]) -> "SchemaV2":
         primary_key: List[str] = json.get("constraints", {}).get("primary_key", [])
-        return cls.from_json_components(
-            json["fields"],
-            json.get("watermarks", []),
-            primary_key,
+        return SchemaV2(
+            fields=[schema_field_factory(field) for field in json.get("fields", [])],
+            watermarks=[
+                Watermark(name=w_json["name"], expression=w_json["expression"])
+                for w_json in json.get("watermarks", [])
+            ],
+            constraints=Constraints(primary_key=primary_key),
         )
 
     def to_dict(self) -> Dict[str, Any]:

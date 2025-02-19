@@ -83,17 +83,6 @@ class TestComputedSchemaField(unittest.TestCase):
 
 
 class TestSchemaV2(unittest.TestCase):
-    def test_from_json_components(self):
-        fields = [{"name": "field1", "kind": "physical", "type": "STRING"}]
-        watermarks = [{"name": "wm1", "expression": "expr1"}]
-        primary_key = ["field1"]
-        schema = SchemaV2.from_json_components(fields, watermarks, primary_key)
-        self.assertEqual(len(schema.fields), 1)
-        self.assertEqual(schema.fields[0].name, "field1")
-        self.assertEqual(len(schema.watermarks), 1)
-        self.assertEqual(schema.watermarks[0].name, "wm1")
-        self.assertEqual(schema.constraints.primary_key, primary_key)
-
     def test_from_json(self):
         json_data = {
             "fields": [{"name": "field1", "kind": "physical", "type": "STRING"}],
@@ -154,7 +143,12 @@ class TestSchemaFieldFactory(unittest.TestCase):
         self.assertEqual(field.kind, FieldKind.physical)
 
     def test_schema_field_factory_metadata(self):
-        field_dict = {"name": "field1", "kind": "metadata", "key": "key1", "type": "STRING"}
+        field_dict = {
+            "name": "field1",
+            "kind": "metadata",
+            "key": "key1",
+            "type": "STRING",
+        }
         field = schema_field_factory(field_dict)
         assert type(field) is MetadataSchemaField
         self.assertEqual(field.name, "field1")

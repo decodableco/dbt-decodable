@@ -16,7 +16,10 @@
 import os
 from unittest import mock
 from decodable.config.profile import DecodableAccessTokens
-from decodable.config.profile_reader import DecodableProfileReader, PROFILE_ENV_VARIABLE_NAME
+from decodable.config.profile_reader import (
+    DecodableProfileReader,
+    PROFILE_ENV_VARIABLE_NAME,
+)
 
 TEST_PROFILE_NAME = "default"
 TEST_PROFILE_ACCESS_TOKEN = "yyy"

@@ -1,4 +1,14 @@
-{{ config(primary_key=["method"]) }}
+{{
+    config(
+        output_stream={
+            "schema_v2": {
+                "constraints": {
+                  "primary_key": ["method"]
+                }
+            }
+        }
+    )
+}}
 
 SELECT coalesce(CAST(envoy['method'] AS STRING), '__UNKNOWN__')  AS `method`,
        SUM(CAST(envoy['bytes_sent'] AS INT)) AS `total_bytes_sent`

@@ -15,7 +15,17 @@
 #
 
 from dataclasses import dataclass, field as dataclass_field
-from typing import Any, ContextManager, Dict, Hashable, List, Optional, Set, Type, Sequence
+from typing import (
+    Any,
+    ContextManager,
+    Dict,
+    Hashable,
+    List,
+    Optional,
+    Set,
+    Type,
+    Sequence,
+)
 
 from agate.table import Table as AgateTable
 from dbt.adapters.base import BaseAdapter, BaseRelation, Column
@@ -30,7 +40,6 @@ from dbt.exceptions import (
     NotImplementedException,
     raise_compiler_error,
     raise_database_error,
-    raise_parsing_error,
 )
 
 from dbt.adapters.decodable.connections import (
@@ -53,13 +62,18 @@ from decodable.client.types import (
     Decimal,
 )
 
-from decodable.client.schema import SchemaV2, SchemaField, PhysicalSchemaField, Constraints
+from decodable.client.schema import (
+    SchemaV2,
+    SchemaField,
+    PhysicalSchemaField,
+    Constraints,
+)
 
 
 @dataclass
 class DecodableConfig(AdapterConfig):
-    watermarks: List[Dict[str, str]] = dataclass_field(default_factory=list)
-    primary_key: List[str] = dataclass_field(default_factory=list)
+    output_stream: Dict[str, Any] = dataclass_field(default_factory=dict)
+    pipeline: Dict[str, Any] = dataclass_field(default_factory=dict)
 
 
 class DecodableAdapter(BaseAdapter):
@@ -390,42 +404,17 @@ class DecodableAdapter(BaseAdapter):
         self,
         sql: str,
         relation: BaseRelation,
-        watermarks: List[Dict[str, str]],
-        primary_key: List[str],
+        pipeline: Dict[str, Any],
+        output_stream: Dict[str, Any],
     ) -> bool:
         client = self._control_plane_client()
-
-        new_pipe_sql = self._wrap_as_pipeline(relation.render(), sql)
-        schema_json: Dict[str, Any] = client.get_stream_from_sql(new_pipe_sql)["schema_v2"]
-
-        new_schema: SchemaV2
-        try:
-            new_schema = SchemaV2.from_json_components(
-                schema_json["fields"], watermarks, primary_key
-            )
-        except Exception as err:
-            raise_compiler_error(f"Error checking changes to the '{relation}' stream: {err}")
-
-        pipe_id = client.get_pipeline_id(relation.render())
-        if not pipe_id:
-            return True
-        pipe_info = client.get_pipeline_information(pipe_id)
-
-        stream_id = client.get_stream_id(relation.render())
-        if not stream_id:
-            return True
-        stream_info = client.get_stream_information(stream_id)
-
-        if pipe_info["sql"] != new_pipe_sql:
-            return True
-
-        existing_schema: SchemaV2
-        try:
-            existing_schema = SchemaV2.from_json(stream_info["schema_v2"])
-        except Exception as err:
-            raise_compiler_error(f"Error checking changes to the '{relation}' stream: {err}")
-
-        return existing_schema != new_schema
+        for resource_result in client.apply(
+            self.generate_declarative_yaml(sql, relation, pipeline, output_stream),
+            dry_run=True,
+        ):
+            if resource_result.get("result", "unknown") != "unchanged":
+                return True
+        return False
 
     @available
     def create_table(
@@ -434,8 +423,8 @@ class DecodableAdapter(BaseAdapter):
         temporary: bool,
         relation: BaseRelation,
         nodes: Dict[str, Any],
-        watermarks: List[Dict[str, str]],
-        primary_key: List[str],
+        pipeline: Dict[str, Any],
+        output_stream: Dict[str, Any],
     ) -> None:
         if not relation.identifier:
             raise_compiler_error("Cannot create an unnamed relation")
@@ -453,54 +442,62 @@ class DecodableAdapter(BaseAdapter):
 
         client = self._control_plane_client()
 
-        fields: List[Dict[str, str]] = client.get_stream_from_sql(
-            self._wrap_as_pipeline(relation.render(), sql)
-        )["schema_v2"]["fields"]
+        client.apply(self.generate_declarative_yaml(sql, relation, pipeline, output_stream))
 
-        if not fields:
-            raise_database_error(
-                f"Error creating the {relation} stream: empty schema returned for sql:\n{sql}"
-            )
-
-        schema: SchemaV2
-        try:
-            schema = SchemaV2.from_json_components(
-                fields,
-                watermarks,
-                primary_key,
-            )
-        except Exception as err:
-            raise_compiler_error(f"Error creating the {relation} stream: {err}")
-
-        schema_hints: Set[PhysicalSchemaField]
-        try:
-            if model:
-                schema_hints = self._get_model_schema_hints(model)
-            else:
-                schema_hints = set()
-        except Exception as err:
-            raise_parsing_error(f"Error creating the {relation} stream: {err}")
-
-        if not schema_hints.issubset(schema.fields):
-            self.logger.warning(
-                f"Column hints for '{name}' don't match the resulting schema:\n{self._pretty_schema(list(schema_hints), 1, 'hints')}\n{self._pretty_schema(schema.fields, 1, 'schema')}"
-            )
-
-        stream_id = client.get_stream_id(relation.render())
-        if not stream_id:
-            client.create_stream(relation.render(), schema)
-            self.logger.debug(f"Stream '{relation}' successfully created!")
-        else:
-            raise_database_error(f"Error creating the {relation} stream: stream already exists!")
-
-        # Both stream and source should exist now, so we can create the pipeline
-        pipeline = client.create_pipeline(
-            sql=self._wrap_as_pipeline(relation.render(), sql),
-            name=relation.render(),
-            description=self._pipeline_description(relation),
-        )
-        client.activate_pipeline(pipeline_id=pipeline["id"])
         self.logger.debug(f"Pipeline '{relation}' successfully created!")
+
+    def generate_declarative_yaml(
+        self,
+        sql: str,
+        relation: BaseRelation,
+        pipeline: Dict[str, Any],
+        output_stream: Dict[str, Any],
+    ) -> List[Dict[str, Any]]:
+        self.populate_output_stream_spec(relation, sql, output_stream)
+
+        pipeline["sql"] = self._wrap_as_pipeline(relation.render(), sql)
+        pipeline.setdefault("execution", {})
+        pipeline["execution"].setdefault("active", True)
+
+        return [
+            {
+                "kind": "stream",
+                "spec_version": "v1",
+                "metadata": {
+                    "name": relation.render(),
+                },
+                "spec": output_stream,
+            },
+            {
+                "kind": "pipeline",
+                "spec_version": "v2",
+                "metadata": {
+                    "name": relation.render(),
+                    "description": self._pipeline_description(relation),
+                },
+                "spec": pipeline,
+            },
+        ]
+
+    def populate_output_stream_spec(
+        self, relation: BaseRelation, sql: str, stream_spec: Dict[str, Any]
+    ):
+        client = self._control_plane_client()
+        stream_spec.setdefault("schema_v2", {})
+        stream_spec["schema_v2"].setdefault("fields", [])
+        stream_spec["schema_v2"].setdefault("constraints", {})
+        stream_spec["schema_v2"].setdefault("watermarks", [])
+        if len(stream_spec["schema_v2"]["fields"]) == 0:
+            fields: List[Dict[str, str]] = client.get_stream_from_sql(
+                self._wrap_as_pipeline(relation.render(), sql)
+            )["schema_v2"]["fields"]
+
+            if not fields:
+                raise_database_error(
+                    f"Error creating the {relation} stream: empty schema returned for sql:\n{sql}"
+                )
+
+            stream_spec["schema_v2"]["fields"] = fields
 
     @available
     def create_seed_table(
@@ -539,7 +536,8 @@ class DecodableAdapter(BaseAdapter):
 
         self.logger.debug(f"Creating connection and stream for seed `{table_name}`...")
         response = client.create_connection(
-            name=table_name, schema=SchemaV2(schema_fields, [], Constraints(primary_key=[]))
+            name=table_name,
+            schema=SchemaV2(schema_fields, [], Constraints(primary_key=[])),
         )
         self.logger.debug(f"Connection and stream `{table_name}` successfully created!")
 
@@ -557,6 +555,7 @@ class DecodableAdapter(BaseAdapter):
             raise_database_error(
                 f"Trying to send seed events to a non-existing connection `{seed_name}`"
             )
+            assert False, "unreachable"
 
         events: List[Dict[str, Any]] = []
         for row in data.rows:
@@ -575,17 +574,18 @@ class DecodableAdapter(BaseAdapter):
         client.deactivate_connection(conn_id)
 
     @available
-    def reactivate_connection(self, connection: Relation):
+    def reactivate_connection(self, connection: BaseRelation):
         client = self._control_plane_client()
 
         conn_id = client.get_connection_id(connection.render())
         if not conn_id:
             raise_database_error(f"Unable to reactivate connection: '{connection}' does not exist")
+            assert False, "unreachable"
 
         client.activate_connection(conn_id)
 
     @available
-    def stop_pipeline(self, pipe: Relation):
+    def stop_pipeline(self, pipe: BaseRelation):
         client = self._control_plane_client()
 
         pipe_id = client.get_pipeline_id(pipe.render())
@@ -595,7 +595,7 @@ class DecodableAdapter(BaseAdapter):
         client.deactivate_pipeline(pipe_id)
 
     @available
-    def delete_pipeline(self, pipe: Relation):
+    def delete_pipeline(self, pipe: BaseRelation):
         client = self._control_plane_client()
 
         pipeline_id = client.get_pipeline_id(pipe.render())
@@ -606,12 +606,13 @@ class DecodableAdapter(BaseAdapter):
             client.delete_pipeline(pipeline_id)
 
     @available
-    def delete_stream(self, stream: Relation, skip_errors: bool = False):
+    def delete_stream(self, stream: BaseRelation, skip_errors: bool = False):
         client = self._control_plane_client()
 
         stream_id = client.get_stream_id(stream.render())
         if not stream_id:
             raise_database_error(f"Unable to delete stream: `{stream}` does not exist")
+            assert False, "unreachable"
 
         try:
             client.delete_stream(stream_id)
@@ -622,12 +623,13 @@ class DecodableAdapter(BaseAdapter):
                 raise_database_error(f"Deleting stream `{stream}` failed: {e}")
 
     @available
-    def delete_connection(self, conn: Relation):
+    def delete_connection(self, conn: BaseRelation):
         client = self._control_plane_client()
 
         conn_id = client.get_connection_id(conn.render())
         if not conn_id:
             raise_database_error(f"Unable to delete connection: `{conn}` does not exist")
+            assert False, "unreachable"
 
         client.deactivate_connection(conn_id)
         client.delete_connection(conn_id)
