@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dbt-decodable"
-version = "2.0.0rc1"
+version = "2.0.0-rc3"
 description = "The Decodable adapter plugin for DBT"
 license = "Apache2.0"
 authors = [
@@ -18,7 +18,7 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.9"
-dbt-adapters = "~1.10.1"
+dbt-adapters = "~1.16.5"
 
 [tool.poetry.dev-dependencies]
 black = "~22.3.0"
