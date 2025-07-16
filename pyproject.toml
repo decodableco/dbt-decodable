@@ -18,7 +18,7 @@ packages = [
 
 [tool.poetry.dependencies]
 python = ">=3.9"
-dbt-core = "~1.9.1"
+dbt-adapters = "~1.10.1"
 
 [tool.poetry.dev-dependencies]
 black = "~22.3.0"
