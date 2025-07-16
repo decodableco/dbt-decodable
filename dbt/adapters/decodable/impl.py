@@ -35,14 +35,9 @@ from dbt.adapters.events.logging import AdapterLogger
 from dbt.adapters.protocol import AdapterConfig
 from dbt.contracts.graph.nodes import ParsedNode
 from dbt.exceptions import (
-    NotImplementedException,
-    raise_compiler_error,
-    raise_database_error,
     CompilationError,
     MissingRelationError,
-    ParsingError
 )
-from dbt.exceptions import CompilationError, MissingRelationError, ParsingError
 from dbt.adapters.contracts.connection import (
     Connection,
 )
@@ -307,7 +302,7 @@ class DecodableAdapter(BaseAdapter):
         stream_id = client.get_stream_id(from_relation.render())
 
         if not stream_id:
-            raise MissingRelationError(f"Cannot rename '{from_relation}': stream does not exist")
+            raise MissingRelationError(from_relation)
 
         if not to_relation.identifier:
             raise CompilationError(f"Cannot rename relation {from_relation} to nothing")
@@ -512,7 +507,7 @@ class DecodableAdapter(BaseAdapter):
             )["schema_v2"]["fields"]
 
             if not fields:
-                raise_database_error(
+                raise CompilationError(
                     f"Error creating the {relation} stream: empty schema returned for sql:\n{sql}"
                 )
 

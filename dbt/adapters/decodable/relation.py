@@ -37,9 +37,10 @@ class DecodableIncludePolicy(Policy):
 
 @dataclass(frozen=True, eq=False, repr=False)
 class DecodableRelation(BaseRelation):
+    pass
     # quote_policy: Policy = DecodableQuotePolicy()
     # include_policy: Policy = DecodableIncludePolicy()
-    dbt_created: bool = True
+    # dbt_created: bool = True
     # default_quote_policy: Policy = DecodableQuotePolicy()
 
     # @property
