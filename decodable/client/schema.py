@@ -14,19 +14,18 @@
 #  limitations under the License.
 #
 
-
 import json
-
 from dataclasses import (
     dataclass,
     asdict,
     field as dataclass_field,
     fields as dataclass_fields,
 )
-from decodable.client.types import FieldType
 from typing import Any, Sequence, List, Dict
 
-from dbt.exceptions import raise_compiler_error
+from dbt.exceptions import CompilationError
+
+from decodable.client.types import FieldType
 
 
 class FieldKind:
@@ -44,7 +43,7 @@ class SchemaField:
     def get_field_type(cls, type_: str) -> FieldType:
         field_type = FieldType.from_str(type_)
         if field_type is None:
-            raise_compiler_error(f"Type '{type_}' not recognized")
+            raise CompilationError(f"Type '{type_}' not recognized")
             assert False, "unreachable"
         else:
             return field_type

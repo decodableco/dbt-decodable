@@ -15,7 +15,7 @@
 #
 from __future__ import annotations
 
-from dbt.events import AdapterLogger
+from dbt.adapters.events.logging import AdapterLogger
 
 from dataclasses import dataclass
 from typing import Any, Dict, Optional, List
